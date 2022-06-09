@@ -2019,7 +2019,6 @@ github.com/redhat-appstudio/application-service v0.0.0-20220509201208-86571e38f5
 github.com/redhat-appstudio/application-service v0.0.0-20220509201208-86571e38f52e/go.mod h1:QzlBejIgkmnzM/tiKzJKK86IXil/6j8KxmxaDInqtmU=
 github.com/redhat-appstudio/integration-service v0.0.0-20220622135319-863425d2cad2 h1:wVpENUra8XAN2UgR09KLjyejoiHcd20P79gVx2wdIuE=
 github.com/redhat-appstudio/integration-service v0.0.0-20220622135319-863425d2cad2/go.mod h1:FNCuALWZDRMbMKm3Vb/5E2R8ei6eFwcEhgYcFKRVZJU=
-
 github.com/redhat-appstudio/managed-gitops/appstudio-shared v0.0.0-20220623041404-010a781bb3fb h1:w0yj4jUZotnRVa3TFmaNBQj2pgZmgUOvSjinQrC2wxk=
 github.com/redhat-appstudio/managed-gitops/appstudio-shared v0.0.0-20220623041404-010a781bb3fb/go.mod h1:zI6l6177ZbAu4MNovCWinVq3Ii3qpD9svV7t9a58b/s=
 github.com/redhat-appstudio/managed-gitops/backend v0.0.0-20220506042230-3a79f373a001 h1:dHYSaZ8slDW27YrbAYj59Zd82Oml3oTj9ieICLtzk8Y=

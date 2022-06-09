@@ -44,6 +44,7 @@ The instructions about every test suite can be found in the [tests folder](https
 * Create test folder under tests folder: `tests/[<application-name>]...`, e.g.
   * `tests/application-service` - all tests used owned by App Studio application team
 * Every test package should be imported to `cmd/e2e_test.go`, e.g.
+* Every new test should have unique test id and correct [labels](https://github.com/redhat-appstudio/e2e-tests/tree/main/docs/LabelsNaming.md)
 
 ```golang
 // cmd/e2e_test.go

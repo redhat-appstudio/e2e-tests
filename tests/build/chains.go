@@ -13,7 +13,7 @@ import (
 	"github.com/redhat-appstudio/e2e-tests/pkg/framework"
 )
 
-var _ = framework.ChainsSuiteDescribe("Tekton Chains E2E tests", func() {
+var _ = framework.ChainsSuiteDescribe("[test_id:05] Tekton Chains E2E tests", g.Label("build"), func() {
 	defer g.GinkgoRecover()
 
 	// Set this to true to skip contract tests

@@ -7,13 +7,12 @@ import (
 	"github.com/redhat-appstudio/e2e-tests/pkg/framework"
 )
 
-var _ = framework.ClusterRegistrationSuiteDescribe("Cluster Registration E2E tests", func() {
+var _ = framework.ClusterRegistrationSuiteDescribe("[test_id:06] Cluster Registration E2E tests", g.Label("cluster-registration"), func() {
 	defer g.GinkgoRecover()
 
 	// Initialize the tests controllers
 	framework, err := framework.NewFramework()
 	Expect(err).NotTo(HaveOccurred())
-
 
 	g.Context("infrastructure is running", func() {
 		g.It("verify the cluster-registration-installer-controller-manager is running", func() {

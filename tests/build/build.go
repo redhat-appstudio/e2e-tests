@@ -40,7 +40,7 @@ var (
 	componentNames []string
 )
 
-var _ = framework.BuildSuiteDescribe("Build service E2E tests", func() {
+var _ = framework.BuildSuiteDescribe("Build service E2E tests", Label("build"), func() {
 
 	f, err := framework.NewFramework()
 	Expect(err).NotTo(HaveOccurred())
