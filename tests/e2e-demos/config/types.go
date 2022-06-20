@@ -30,4 +30,6 @@ type ComponentSpec struct {
 	GitSourceUrl string `yaml:"gitSourceUrl,omitempty"`
 	// An endpoint where the framework can ping to see if a component was deployed successfully
 	HealthEndpoint string `yaml:"healthz"`
+	// If set, will scale the replicas to the desired number
+	ScaleReplicas int `yaml:"scaleReplicas,omitempty"`
 }

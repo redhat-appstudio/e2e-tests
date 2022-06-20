@@ -167,6 +167,29 @@ var _ = framework.E2ESuiteDescribe(func() {
 						return true
 					}, 5*time.Minute, 10*time.Second).Should(BeTrue())
 				})
+
+				if componentTest.ScaleReplicas > 1 {
+					It(fmt.Sprintf("scale component %s replicas", componentTest.Name), func() {
+						component, err := framework.HasController.GetHasComponent(componentTest.Name, AppStudioE2EApplicationsNamespace)
+						Expect(err).NotTo(HaveOccurred())
+						_, err = framework.HasController.ScaleComponentReplicas(component, componentTest.ScaleReplicas)
+						Expect(err).NotTo(HaveOccurred())
+
+						Eventually(func() bool {
+							deployment, _ := framework.CommonController.GetAppDeploymentByName(componentTest.Name, AppStudioE2EApplicationsNamespace)
+							if err != nil && !errors.IsNotFound(err) {
+								return false
+							}
+							if deployment.Status.AvailableReplicas == int32(componentTest.ScaleReplicas) {
+								klog.Infof("Replicas scaled to %s ", componentTest.ScaleReplicas)
+								return true
+							}
+
+							return false
+						}, 5*time.Minute, 10*time.Second).Should(BeTrue(), "Component deployment didn't get scaled to desired replicas")
+						Expect(err).NotTo(HaveOccurred())
+					})
+				}
 			}
 		})
 	}

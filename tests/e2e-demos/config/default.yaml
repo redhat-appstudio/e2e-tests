@@ -7,7 +7,8 @@ tests:
         gitSourceUrl: "https://github.com/redhat-appstudio-qe/simple-nodejs-app"
         devfileSource: "https://raw.githubusercontent.com/redhat-appstudio-qe/simple-nodejs-app/main/devfiles/devfile.yaml"
         language: "nodejs"
-        healthz: "/users"
+        healthz: "/"
+        scaleReplicas: 2
   - name: "RHDP-476: create an application with DotNet component"
     applicationName: "e2e-dotnet"
     components:
