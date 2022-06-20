@@ -18,7 +18,4 @@ const (
 
 	// GitOps repository branch to use
 	GitOpsRepositoryRevision string = "main"
-
-	// Component deployment replicas
-	ComponentDeploymentReplicas int = 3
 )
