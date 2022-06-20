@@ -170,13 +170,13 @@ var _ = framework.E2ESuiteDescribe(func() {
 
 				if componentTest.ScaleReplicas > 1 {
 					It(fmt.Sprintf("scale component %s replicas", componentTest.Name), func() {
-						component, err := framework.HasController.GetHasComponent(componentTest.Name, AppStudioE2EApplicationsNamespace)
+						component, err := fw.HasController.GetHasComponent(componentTest.Name, AppStudioE2EApplicationsNamespace)
 						Expect(err).NotTo(HaveOccurred())
-						_, err = framework.HasController.ScaleComponentReplicas(component, componentTest.ScaleReplicas)
+						_, err = fw.HasController.ScaleComponentReplicas(component, componentTest.ScaleReplicas)
 						Expect(err).NotTo(HaveOccurred())
 
 						Eventually(func() bool {
-							deployment, _ := framework.CommonController.GetAppDeploymentByName(componentTest.Name, AppStudioE2EApplicationsNamespace)
+							deployment, _ := fw.CommonController.GetAppDeploymentByName(componentTest.Name, AppStudioE2EApplicationsNamespace)
 							if err != nil && !errors.IsNotFound(err) {
 								return false
 							}
