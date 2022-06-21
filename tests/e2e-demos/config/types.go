@@ -16,6 +16,13 @@ type TestSpec struct {
 	Components []ComponentSpec `yaml:"components"`
 }
 
+// Set k8s resource specific properties
+type K8sSpec struct {
+	// If set, will scale the replicas to the desired number
+	// This is a pointer to distinguish between explicit zero and not specified.
+	Replicas *int32 `yaml:"replicas,omitempty"`
+}
+
 // Specs for a specific component to create in AppStudio
 type ComponentSpec struct {
 	// The component name which will be created
@@ -30,6 +37,6 @@ type ComponentSpec struct {
 	GitSourceUrl string `yaml:"gitSourceUrl,omitempty"`
 	// An endpoint where the framework can ping to see if a component was deployed successfully
 	HealthEndpoint string `yaml:"healthz"`
-	// If set, will scale the replicas to the desired number
-	ScaleReplicas int `yaml:"scaleReplicas,omitempty"`
+	// Set k8s resource specific properties
+	K8sSpec K8sSpec `yaml:"spec,omitempty"`
 }

@@ -168,11 +168,11 @@ var _ = framework.E2ESuiteDescribe(func() {
 					}, 5*time.Minute, 10*time.Second).Should(BeTrue())
 				})
 
-				if componentTest.ScaleReplicas > 1 {
+				if componentTest.K8sSpec != (config.K8sSpec{}) && *componentTest.K8sSpec.Replicas > 1 {
 					It(fmt.Sprintf("scale component %s replicas", componentTest.Name), func() {
 						component, err := fw.HasController.GetHasComponent(componentTest.Name, AppStudioE2EApplicationsNamespace)
 						Expect(err).NotTo(HaveOccurred())
-						_, err = fw.HasController.ScaleComponentReplicas(component, componentTest.ScaleReplicas)
+						_, err = fw.HasController.ScaleComponentReplicas(component, int(*componentTest.K8sSpec.Replicas))
 						Expect(err).NotTo(HaveOccurred())
 
 						Eventually(func() bool {
@@ -180,8 +180,8 @@ var _ = framework.E2ESuiteDescribe(func() {
 							if err != nil && !errors.IsNotFound(err) {
 								return false
 							}
-							if deployment.Status.AvailableReplicas == int32(componentTest.ScaleReplicas) {
-								klog.Infof("Replicas scaled to %s ", componentTest.ScaleReplicas)
+							if deployment.Status.AvailableReplicas == *componentTest.K8sSpec.Replicas {
+								klog.Infof("Replicas scaled to %s ", componentTest.K8sSpec.Replicas)
 								return true
 							}
 
