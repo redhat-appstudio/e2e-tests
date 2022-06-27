@@ -76,19 +76,20 @@ func (s *SuiteController) CreateReleaseLink(name, namespace, application, target
 }
 
 // CreateReleaseStrategy creates a new ReleaseStrategy using the given parameters.
-func (s *SuiteController) CreateReleaseStrategy(name, namespace, pipelineName, bundle string, policy string) (*v1alpha1.ReleaseStrategy, error) {
+func (s *SuiteController) CreateReleaseStrategy(name, namespace, pipelineName, bundle string, policy string, releaseStrategyParams []v1alpha1.Params, serviceAccountName string) (*v1alpha1.ReleaseStrategy, error) {
 	releaseStrategy := &v1alpha1.ReleaseStrategy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 		},
 		Spec: v1alpha1.ReleaseStrategySpec{
-			Pipeline: pipelineName,
-			Bundle:   bundle,
-			Policy:   policy,
+			Pipeline:       pipelineName,
+			Bundle:         bundle,
+			Policy:         policy,
+			Params:         releaseStrategyParams,
+			ServiceAccount: serviceAccountName,
 		},
 	}
-
 	return releaseStrategy, s.KubeRest().Create(context.TODO(), releaseStrategy)
 }
 

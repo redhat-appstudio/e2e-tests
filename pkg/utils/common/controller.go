@@ -173,6 +173,21 @@ func (s *SuiteController) GetServiceAccount(saName, namespace string) (*corev1.S
 	return s.KubeInterface().CoreV1().ServiceAccounts(namespace).Get(context.TODO(), saName, metav1.GetOptions{})
 }
 
+func (s *SuiteController) CreateServiceAccount(saName string, namespace string, serviceAccountSecret string) (*corev1.ServiceAccount, error) {
+	serviceAccount := &corev1.ServiceAccount{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      saName,
+			Namespace: namespace,
+		},
+		Secrets: []corev1.ObjectReference{
+			{
+				Name: serviceAccountSecret,
+			},
+		},
+	}
+	return s.KubeInterface().CoreV1().ServiceAccounts(namespace).Create(context.TODO(), serviceAccount, metav1.CreateOptions{})
+}
+
 // GetOpenshiftRoute returns the route for a given component name
 func (h *SuiteController) GetOpenshiftRoute(routeName string, routeNamespace string) (*routev1.Route, error) {
 	namespacedName := types.NamespacedName{
