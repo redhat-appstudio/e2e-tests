@@ -7,8 +7,11 @@ import (
 	gitopsv1alpha1 "github.com/redhat-appstudio/managed-gitops/appstudio-shared/apis/appstudio.redhat.com/v1alpha1"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -121,6 +124,7 @@ func (s *SuiteController) GetRelease(releaseName, releaseNamespace string) (*v1a
 	return release, err
 }
 
+<<<<<<< HEAD
 // Get ReleaseLink object from a given namespace
 func (s *SuiteController) GetReleaseLink(name string, namespace string) (*v1alpha1.ReleaseLink, error) {
 	namespacedName := types.NamespacedName{
@@ -134,4 +138,29 @@ func (s *SuiteController) GetReleaseLink(name string, namespace string) (*v1alph
 		return nil, err
 	}
 	return releaseLink, nil
+=======
+// Create a PVC with RewriteMany VolumeAccessMode.
+func createPVC(pvcs v1.PersistentVolumeClaimInterface, pvcName string) error {
+	pvc := &corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: pvcName,
+		},
+		Spec: corev1.PersistentVolumeClaimSpec{
+			AccessModes: []corev1.PersistentVolumeAccessMode{
+				corev1.ReadWriteMany,
+			},
+			Resources: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceStorage: resource.MustParse("1Gi"),
+				},
+			},
+		},
+	}
+
+	if _, err := pvcs.Create(context.TODO(), pvc, metav1.CreateOptions{}); err != nil {
+		return err
+	}
+
+	return nil
+>>>>>>> 8bdd259 (HACBS-738 #comment Create an e2e-test for tekton bundle pipeline)
 }
