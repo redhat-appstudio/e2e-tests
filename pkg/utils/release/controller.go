@@ -76,20 +76,19 @@ func (s *SuiteController) CreateReleaseLink(name, namespace, application, target
 }
 
 // CreateReleaseStrategy creates a new ReleaseStrategy using the given parameters.
-func (s *SuiteController) CreateReleaseStrategy(name, namespace, pipelineName, bundle string, policy string, releaseStrategyParams []v1alpha1.Params, serviceAccountName string) (*v1alpha1.ReleaseStrategy, error) {
+func (s *SuiteController) CreateReleaseStrategy(name, namespace, pipelineName, bundle string, policy string) (*v1alpha1.ReleaseStrategy, error) {
 	releaseStrategy := &v1alpha1.ReleaseStrategy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 		},
 		Spec: v1alpha1.ReleaseStrategySpec{
-			Pipeline:       pipelineName,
-			Bundle:         bundle,
-			Policy:         policy,
-			Params:         releaseStrategyParams,
-			ServiceAccount: serviceAccountName,
+			Pipeline: pipelineName,
+			Bundle:   bundle,
+			Policy:   policy,
 		},
 	}
+
 	return releaseStrategy, s.KubeRest().Create(context.TODO(), releaseStrategy)
 }
 
@@ -125,7 +124,6 @@ func (s *SuiteController) GetRelease(releaseName, releaseNamespace string) (*v1a
 	return release, err
 }
 
-<<<<<<< HEAD
 // Get ReleaseLink object from a given namespace
 func (s *SuiteController) GetReleaseLink(name string, namespace string) (*v1alpha1.ReleaseLink, error) {
 	namespacedName := types.NamespacedName{
@@ -139,9 +137,10 @@ func (s *SuiteController) GetReleaseLink(name string, namespace string) (*v1alph
 		return nil, err
 	}
 	return releaseLink, nil
-=======
+}
+
 // Create a PVC with RewriteMany VolumeAccessMode.
-func createPVC(pvcs v1.PersistentVolumeClaimInterface, pvcName string) error {
+func createPVCReadWriteMany(pvcs v1.PersistentVolumeClaimInterface, pvcName string) error {
 	pvc := &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: pvcName,
@@ -163,5 +162,22 @@ func createPVC(pvcs v1.PersistentVolumeClaimInterface, pvcName string) error {
 	}
 
 	return nil
->>>>>>> 8bdd259 (HACBS-738 #comment Create an e2e-test for tekton bundle pipeline)
+}
+
+// CreateReleaseStrategy creates a new ReleaseStrategy using the given parameters.
+func (s *SuiteController) CreateReleaseStrategyParams(name, namespace, pipelineName, bundle string, policy string, releaseStrategyParams []v1alpha1.Params, serviceAccountName string) (*v1alpha1.ReleaseStrategy, error) {
+	releaseStrategy := &v1alpha1.ReleaseStrategy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: v1alpha1.ReleaseStrategySpec{
+			Pipeline:       pipelineName,
+			Bundle:         bundle,
+			Policy:         policy,
+			Params:         releaseStrategyParams,
+			ServiceAccount: serviceAccountName,
+		},
+	}
+	return releaseStrategy, s.KubeRest().Create(context.TODO(), releaseStrategy)
 }

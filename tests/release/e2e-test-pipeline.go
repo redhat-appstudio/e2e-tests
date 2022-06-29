@@ -73,12 +73,12 @@ var _ = framework.ReleaseSuiteDescribe("test-demo", func() {
 	var _ = Describe("Creation of the 'tekton test-bundle e2e-test' resources", func() {
 		It("Create PVC in", func() {
 			pvcs := k.Commonctrl.KubeInterface().CoreV1().PersistentVolumeClaims(managedNamespace)
-			_, err := framework.ReleaseController.createPVC(pvcs, releasePvcName)
+			_, err := framework.ReleaseController.createPVCReadWriteMany(pvcs, releasePvcName)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("Create Release Strategy", func() {
-			_, err := framework.ReleaseController.CreateReleaseStrategy(releaseStrategyName, managedNamespace, releasePipelineName, releasePipelineBundle, releaseStrategyPolicy, releaseStartegyParams, serviceAccountName)
+			_, err := framework.ReleaseController.CreateReleaseStrategyParams(releaseStrategyName, managedNamespace, releasePipelineName, releasePipelineBundle, releaseStrategyPolicy, releaseStartegyParams, serviceAccountName)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
