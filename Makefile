@@ -14,3 +14,15 @@ push-container:
 
 run:
 	$(E2E_BIN) $(E2E_ARGS_EXEC)
+
+ci/test/e2e:
+	./mage -v ci:teste2e
+
+ci/prepare/e2e-branch:
+	./mage -v ci:prepareE2Ebranch
+
+local/cluster/prepare:
+	./mage -v local:prepareCluster
+
+local/test/e2e:
+	./mage -v local:teste2e

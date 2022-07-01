@@ -38,9 +38,9 @@ oc adm policy add-cluster-role-to-user cluster-admin appstudioci
 
 function waitForNewOCPLogin() {
     while ! oc login --kubeconfig="${KUBECONFIG_TEST}" --server $API_SERVER --username="${TMP_CI_USER}" --password=${TMP_CI_USER} --insecure-skip-tls-verify; do
-        sleep 10
+        sleep 20
     done
 }
 
 export -f waitForNewOCPLogin
-timeout --foreground 6m bash -c waitForNewOCPLogin
+timeout --foreground 10m bash -c waitForNewOCPLogin
