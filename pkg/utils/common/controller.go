@@ -173,17 +173,13 @@ func (s *SuiteController) GetServiceAccount(saName, namespace string) (*corev1.S
 	return s.KubeInterface().CoreV1().ServiceAccounts(namespace).Get(context.TODO(), saName, metav1.GetOptions{})
 }
 
-func (s *SuiteController) CreateServiceAccount(saName string, namespace string, serviceAccountSecret string) (*corev1.ServiceAccount, error) {
+func (s *SuiteController) CreateServiceAccount(saName string, namespace string, serviceAccountSecretList []corev1.ObjectReference) (*corev1.ServiceAccount, error) {
 	serviceAccount := &corev1.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      saName,
 			Namespace: namespace,
 		},
-		Secrets: []corev1.ObjectReference{
-			{
-				Name: serviceAccountSecret,
-			},
-		},
+		Secrets: serviceAccountSecretList,
 	}
 	return s.KubeInterface().CoreV1().ServiceAccounts(namespace).Create(context.TODO(), serviceAccount, metav1.CreateOptions{})
 }

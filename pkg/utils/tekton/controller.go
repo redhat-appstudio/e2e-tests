@@ -187,7 +187,7 @@ func (k KubeController) RunPipeline(g PipelineRunGenerator, taskTimeout int) (*v
 			pvcName := w.PersistentVolumeClaim.ClaimName
 			if _, err := pvcs.Get(context.TODO(), pvcName, metav1.GetOptions{}); err != nil {
 				if errors.IsNotFound(err) {
-					err := createPVC(pvcs, pvcName)
+					err := CreatePVC(pvcs, pvcName, "", "")
 					if err != nil {
 						return nil, err
 					}
@@ -197,31 +197,45 @@ func (k KubeController) RunPipeline(g PipelineRunGenerator, taskTimeout int) (*v
 			}
 		}
 	}
-
 	return k.createAndWait(pr, taskTimeout)
 }
 
-func createPVC(pvcs v1.PersistentVolumeClaimInterface, pvcName string) error {
+func CreatePVC(pvcs v1.PersistentVolumeClaimInterface, pvcName string, volumeAccessMode string, volumeSize string) error {
+
+	volumeAccessModeFinal := corev1.ReadWriteOnce
+	switch volumeAccessMode {
+	case "ReadWriteOnce":
+		volumeAccessModeFinal = corev1.ReadWriteOnce
+	case "ReadOnlyMany":
+		volumeAccessModeFinal = corev1.ReadOnlyMany
+	case "ReadWriteMany":
+		volumeAccessModeFinal = corev1.ReadWriteMany
+	case "ReadWriteOncePod":
+		volumeAccessModeFinal = corev1.ReadWriteOncePod
+	case "":
+		volumeAccessModeFinal = corev1.ReadWriteOnce
+	}
+	if volumeSize == "" {
+		volumeSize = "1Gi"
+	}
 	pvc := &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: pvcName,
 		},
 		Spec: corev1.PersistentVolumeClaimSpec{
 			AccessModes: []corev1.PersistentVolumeAccessMode{
-				corev1.ReadWriteOnce,
+				volumeAccessModeFinal,
 			},
 			Resources: corev1.ResourceRequirements{
 				Requests: corev1.ResourceList{
-					corev1.ResourceStorage: resource.MustParse("1Gi"),
+					corev1.ResourceStorage: resource.MustParse(volumeSize),
 				},
 			},
 		},
 	}
-
 	if _, err := pvcs.Create(context.TODO(), pvc, metav1.CreateOptions{}); err != nil {
 		return err
 	}
-
 	return nil
 }
 

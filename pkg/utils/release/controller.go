@@ -7,11 +7,8 @@ import (
 	gitopsv1alpha1 "github.com/redhat-appstudio/managed-gitops/appstudio-shared/apis/appstudio.redhat.com/v1alpha1"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -75,23 +72,6 @@ func (s *SuiteController) CreateReleaseLink(name, namespace, application, target
 	return releaseLink, s.KubeRest().Create(context.TODO(), releaseLink)
 }
 
-// CreateReleaseStrategy creates a new ReleaseStrategy using the given parameters.
-func (s *SuiteController) CreateReleaseStrategy(name, namespace, pipelineName, bundle string, policy string) (*v1alpha1.ReleaseStrategy, error) {
-	releaseStrategy := &v1alpha1.ReleaseStrategy{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-		},
-		Spec: v1alpha1.ReleaseStrategySpec{
-			Pipeline: pipelineName,
-			Bundle:   bundle,
-			Policy:   policy,
-		},
-	}
-
-	return releaseStrategy, s.KubeRest().Create(context.TODO(), releaseStrategy)
-}
-
 // GetPipelineRunInNamespace returns the Release PipelineRun referencing the given release.
 func (s *SuiteController) GetPipelineRunInNamespace(namespace, releaseName, releaseNamespace string) (*v1beta1.PipelineRun, error) {
 	pipelineRuns := &v1beta1.PipelineRunList{}
@@ -139,33 +119,8 @@ func (s *SuiteController) GetReleaseLink(name string, namespace string) (*v1alph
 	return releaseLink, nil
 }
 
-// Create a PVC with RewriteMany VolumeAccessMode.
-func createPVCReadWriteMany(pvcs v1.PersistentVolumeClaimInterface, pvcName string) error {
-	pvc := &corev1.PersistentVolumeClaim{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: pvcName,
-		},
-		Spec: corev1.PersistentVolumeClaimSpec{
-			AccessModes: []corev1.PersistentVolumeAccessMode{
-				corev1.ReadWriteMany,
-			},
-			Resources: corev1.ResourceRequirements{
-				Requests: corev1.ResourceList{
-					corev1.ResourceStorage: resource.MustParse("1Gi"),
-				},
-			},
-		},
-	}
-
-	if _, err := pvcs.Create(context.TODO(), pvc, metav1.CreateOptions{}); err != nil {
-		return err
-	}
-
-	return nil
-}
-
 // CreateReleaseStrategy creates a new ReleaseStrategy using the given parameters.
-func (s *SuiteController) CreateReleaseStrategyParams(name, namespace, pipelineName, bundle string, policy string, releaseStrategyParams []v1alpha1.Params, serviceAccountName string) (*v1alpha1.ReleaseStrategy, error) {
+func (s *SuiteController) CreateReleaseStrategy(name, namespace, pipelineName, bundle string, policy string, releaseStrategyParams []v1alpha1.Params, serviceAccountName string) (*v1alpha1.ReleaseStrategy, error) {
 	releaseStrategy := &v1alpha1.ReleaseStrategy{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,

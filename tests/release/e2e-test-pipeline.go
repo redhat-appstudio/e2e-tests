@@ -8,41 +8,30 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/redhat-appstudio/e2e-tests/pkg/framework"
-	"github.com/redhat-appstudio/e2e-tests/tree/main/pkg/utils/tekton"
-	gitopsv1alpha1 "github.com/redhat-appstudio/managed-gitops/appstudio-shared/apis/appstudio.redhat.com/v1alpha1"
+	"github.com/redhat-appstudio/release-service/api/v1alpha1"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"knative.dev/pkg/apis"
 )
 
 const (
-	snapshotName          = "snapshot"
-	sourceReleaseLinkName = "source-release-link"
-	targetReleaseLinkName = "target-release-link"
-	releaseStrategyName   = "strategy"
-	releaseName           = "release"
-	releasePipelineName   = "release-pipeline"
-	applicationName       = "application"
-	releasePipelineBundle = "quay.io/hacbs-release/demo:m5-alpine"
-	releaseStrategyPolicy = "policy"
-	releasePvcName        = "release-pvc"
-	serviceAccountName    = "m5-service-account"
-	secretName            = "hacbs-release-tests-token"
-
-	avgPipelineCompletionTime = 10 * time.Minute
-	defaultInterval           = 100 * time.Millisecond
+	releasePvcName          = "release-pvc"
+	serviceAccountName      = "m5-service-account"
+	secretName              = "hacbs-release-tests-token"
+	volumeAccessModeForTest = "ReadWriteMany"
 )
 
-var snapshotComponents = []gitopsv1alpha1.ApplicationSnapshotComponent{
-	{"component-1", "quay.io/redhat-appstudio/component1@sha256:d5e85e49c89df42b221d972f5b96c6507a8124717a6e42e83fd3caae1031d514"},
-	{"component-2", "quay.io/redhat-appstudio/component2@sha256:a01dfd18cf8ca8b68770b09a9b6af0fd7c6d1f8644c7ab97f0e06c34dfc5860e"},
-	{"component-3", "quay.io/redhat-appstudio/component3@sha256:d90a0a33e4c5a1daf5877f8dd989a570bfae4f94211a8143599245e503775b1f"},
+var releaseStartegyParams = []v1alpha1.Params{
+	{Name: "extraConfigGitUrl", Value: "https://github.com/davidmogar/strategy-configs.git"},
+	{Name: "extraConfigPath", Value: "m5.yaml"},
+	{Name: "extraConfigRevision", Value: "main"},
 }
 
-var releaseStartegyParams = []v1alpha1.Params{
-	{Name: "extraConfigGitUrl", Value: "https://github.com/davidmogar/strategy-configs.git"}
-	{Name: "extraConfigPath", Value: "m5.yaml"}
-	{Name: "extraConfigRevision", Value: "main"}
+var serviceAccountSecretList = []corev1.ObjectReference{
+	{
+		Name: serviceAccountName,
+	},
 }
 
 var _ = framework.ReleaseSuiteDescribe("test-demo", func() {
@@ -72,13 +61,13 @@ var _ = framework.ReleaseSuiteDescribe("test-demo", func() {
 
 	var _ = Describe("Creation of the 'tekton test-bundle e2e-test' resources", func() {
 		It("Create PVC in", func() {
-			pvcs := k.Commonctrl.KubeInterface().CoreV1().PersistentVolumeClaims(managedNamespace)
-			_, err := framework.ReleaseController.createPVCReadWriteMany(pvcs, releasePvcName)
+			pvcs := framework.TektonController.KubeInterface().CoreV1().PersistentVolumeClaims(managedNamespace)
+			_, err := framework.TektonController.CreatePVC(pvcs, releaseName, volumeAccessModeForTest, "")
 			Expect(err).NotTo(HaveOccurred())
 		})
 
 		It("Create Release Strategy", func() {
-			_, err := framework.ReleaseController.CreateReleaseStrategyParams(releaseStrategyName, managedNamespace, releasePipelineName, releasePipelineBundle, releaseStrategyPolicy, releaseStartegyParams, serviceAccountName)
+			_, err := framework.ReleaseController.CreateReleaseStrategy(releaseStrategyName, managedNamespace, releasePipelineName, releasePipelineBundle, releaseStrategyPolicy, releaseStartegyParams, serviceAccountName)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -93,7 +82,7 @@ var _ = framework.ReleaseSuiteDescribe("test-demo", func() {
 		})
 
 		It("Create a Release", func() {
-			_, err := framework.CommonController.CreateServiceAccount(serviceAccountName, managedNamespace, secretName)
+			_, err := framework.CommonController.CreateServiceAccount(serviceAccountName, managedNamespace, serviceAccountSecretList)
 			Expect(err).NotTo(HaveOccurred())
 		})
 	})

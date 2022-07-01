@@ -9,6 +9,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/redhat-appstudio/e2e-tests/pkg/framework"
 	gitopsv1alpha1 "github.com/redhat-appstudio/managed-gitops/appstudio-shared/apis/appstudio.redhat.com/v1alpha1"
+	"github.com/redhat-appstudio/release-service/api/v1alpha1"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	"knative.dev/pkg/apis"
@@ -33,6 +34,12 @@ var snapshotComponents = []gitopsv1alpha1.ApplicationSnapshotComponent{
 	{"component-1", "quay.io/redhat-appstudio/component1@sha256:d5e85e49c89df42b221d972f5b96c6507a8124717a6e42e83fd3caae1031d514"},
 	{"component-2", "quay.io/redhat-appstudio/component2@sha256:a01dfd18cf8ca8b68770b09a9b6af0fd7c6d1f8644c7ab97f0e06c34dfc5860e"},
 	{"component-3", "quay.io/redhat-appstudio/component3@sha256:d90a0a33e4c5a1daf5877f8dd989a570bfae4f94211a8143599245e503775b1f"},
+}
+
+var emptyReleaseStartegyParams = []v1alpha1.Params{
+	{Name: "extraConfigGitUrl", Value: ""},
+	{Name: "extraConfigPath", Value: ""},
+	{Name: "extraConfigRevision", Value: ""},
 }
 
 var _ = framework.ReleaseSuiteDescribe("test-release-service-happy-path", func() {
@@ -67,7 +74,7 @@ var _ = framework.ReleaseSuiteDescribe("test-release-service-happy-path", func()
 		})
 
 		It("Create Release Strategy", func() {
-			_, err := framework.ReleaseController.CreateReleaseStrategy(releaseStrategyName, managedNamespace, releasePipelineName, releasePipelineBundle, releaseStrategyPolicy)
+			_, err := framework.ReleaseController.CreateReleaseStrategy(releaseStrategyName, managedNamespace, releasePipelineName, releasePipelineBundle, releaseStrategyPolicy, emptyReleaseStartegyParams, "")
 			Expect(err).NotTo(HaveOccurred())
 		})
 
