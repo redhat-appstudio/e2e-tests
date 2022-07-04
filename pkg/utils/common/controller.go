@@ -8,6 +8,7 @@ import (
 
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
@@ -322,4 +323,31 @@ func (s *SuiteController) ServiceaccountPresent(saName, namespace string) wait.C
 		}
 		return true, nil
 	}
+}
+
+func (s *SuiteController) CreatePVC(name, namespace string, volumeAccessMode corev1.PersistentVolumeAccessMode) error {
+	return s.CreatePVCWithSize(name, namespace, "1Gi", volumeAccessMode)
+}
+
+func (s *SuiteController) CreatePVCWithSize(name, namespace, volumeSize string, volumeAccessMode corev1.PersistentVolumeAccessMode) error {
+	pvc := &corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespace,
+		},
+		Spec: corev1.PersistentVolumeClaimSpec{
+			AccessModes: []corev1.PersistentVolumeAccessMode{
+				volumeAccessMode,
+			},
+			Resources: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					corev1.ResourceStorage: resource.MustParse(volumeSize),
+				},
+			},
+		},
+	}
+
+	_, err := s.KubeInterface().CoreV1().PersistentVolumeClaims(namespace).Create(context.TODO(), pvc, metav1.CreateOptions{})
+
+	return err
 }

@@ -11,14 +11,12 @@ import (
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
-	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -187,7 +185,7 @@ func (k KubeController) RunPipeline(g PipelineRunGenerator, taskTimeout int) (*v
 			pvcName := w.PersistentVolumeClaim.ClaimName
 			if _, err := pvcs.Get(context.TODO(), pvcName, metav1.GetOptions{}); err != nil {
 				if errors.IsNotFound(err) {
-					err := CreatePVC(pvcs, pvcName, "", "")
+					err := k.Commonctrl.CreatePVC(pvcName, pr.Namespace, corev1.ReadWriteOnce)
 					if err != nil {
 						return nil, err
 					}
@@ -198,45 +196,6 @@ func (k KubeController) RunPipeline(g PipelineRunGenerator, taskTimeout int) (*v
 		}
 	}
 	return k.createAndWait(pr, taskTimeout)
-}
-
-func CreatePVC(pvcs v1.PersistentVolumeClaimInterface, pvcName string, volumeAccessMode string, volumeSize string) error {
-
-	volumeAccessModeFinal := corev1.ReadWriteOnce
-	switch volumeAccessMode {
-	case "ReadWriteOnce":
-		volumeAccessModeFinal = corev1.ReadWriteOnce
-	case "ReadOnlyMany":
-		volumeAccessModeFinal = corev1.ReadOnlyMany
-	case "ReadWriteMany":
-		volumeAccessModeFinal = corev1.ReadWriteMany
-	case "ReadWriteOncePod":
-		volumeAccessModeFinal = corev1.ReadWriteOncePod
-	case "":
-		volumeAccessModeFinal = corev1.ReadWriteOnce
-	}
-	if volumeSize == "" {
-		volumeSize = "1Gi"
-	}
-	pvc := &corev1.PersistentVolumeClaim{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: pvcName,
-		},
-		Spec: corev1.PersistentVolumeClaimSpec{
-			AccessModes: []corev1.PersistentVolumeAccessMode{
-				volumeAccessModeFinal,
-			},
-			Resources: corev1.ResourceRequirements{
-				Requests: corev1.ResourceList{
-					corev1.ResourceStorage: resource.MustParse(volumeSize),
-				},
-			},
-		},
-	}
-	if _, err := pvcs.Create(context.TODO(), pvc, metav1.CreateOptions{}); err != nil {
-		return err
-	}
-	return nil
 }
 
 func (k KubeController) AwaitAttestationAndSignature(image string, timeout time.Duration) error {
