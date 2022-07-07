@@ -7,6 +7,7 @@ import (
 	"github.com/redhat-appstudio/e2e-tests/pkg/framework"
 	"github.com/redhat-appstudio/release-service/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/klog"
 )
 
 const (
@@ -31,7 +32,7 @@ var serviceAccountSecretList = []corev1.ObjectReference{
 	},
 }
 
-var _ = framework.ReleaseSuiteDescribe("test-demo", func() {
+var _ = framework.ReleaseSuiteDescribe("release-suite-e2e-tekton-pipeline", func() {
 	defer GinkgoRecover()
 	// Initialize the tests controllers
 	framework, err := framework.NewFramework()
@@ -43,10 +44,12 @@ var _ = framework.ReleaseSuiteDescribe("test-demo", func() {
 	BeforeAll(func() {
 		// Create the dev namespace
 		demo, err := framework.CommonController.CreateTestNamespace(devNamespace)
+		klog.Info("Dev namespace:", devNamespace)
 		Expect(err).NotTo(HaveOccurred(), "Error when creating namespace '%s': %v", demo.Name, err)
 
 		// Create the managed namespace
 		namespace, err := framework.CommonController.CreateTestNamespace(managedNamespace)
+		klog.Info("Dev namespace:", managedNamespace)
 		Expect(err).NotTo(HaveOccurred(), "Error when creating namespace '%s': %v", namespace.Name, err)
 	})
 
@@ -58,7 +61,7 @@ var _ = framework.ReleaseSuiteDescribe("test-demo", func() {
 
 	var _ = Describe("Creation of the 'tekton test-bundle e2e-test' resources", func() {
 		It("Create PVC in", func() {
-			err := framework.CommonController.CreatePVC(releasePvcName, releaseName, corev1.ReadWriteMany)
+			err := framework.CommonController.CreatePVC(releasePvcName, managedNamespace, corev1.ReadWriteMany)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
@@ -88,7 +91,7 @@ var _ = framework.ReleaseSuiteDescribe("test-demo", func() {
 		})
 
 		It("Create componenet", func() {
-			_, err := framework.HasController.CreateComponent(appNamePipelineTest, componenetNamePipelineTest, managedNamespace, componentUrl, componentDockerFileUrl, "", secretName)
+			_, err := framework.HasController.CreateComponent(appNamePipelineTest, componenetNamePipelineTest, managedNamespace, componentUrl, componentDockerFileUrl, "", "")
 			Expect(err).NotTo(HaveOccurred())
 		})
 	})
