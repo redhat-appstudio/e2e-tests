@@ -18,6 +18,10 @@ func getRemoteAndBranchNameFromPRLink(url string) (remote, branchName string, er
 		return "", "", err
 	}
 
+	if ghRes.Head.Label == "" {
+		return "", "", fmt.Errorf("failed to get an information about the remote and branch name from PR %s", url)
+	}
+
 	split := strings.Split(ghRes.Head.Label, ":")
 	remote, branchName = split[0], split[1]
 

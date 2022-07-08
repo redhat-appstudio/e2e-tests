@@ -95,7 +95,7 @@ func (Local) TestE2E() error {
 func (ci CI) TestE2E() error {
 
 	if err := ci.init(); err != nil {
-		return err
+		return fmt.Errorf("error when running ci init: %v", err)
 	}
 
 	if err := PreflightChecks(); err != nil {
