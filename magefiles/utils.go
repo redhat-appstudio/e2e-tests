@@ -14,7 +14,9 @@ import (
 
 func getRemoteAndBranchNameFromPRLink(url string) (remote, branchName string, err error) {
 	ghRes := &GithubPRInfo{}
-	sendHttpRequestAndParseResponse(url, "GET", ghRes)
+	if err := sendHttpRequestAndParseResponse(url, "GET", ghRes); err != nil {
+		return "", "", err
+	}
 
 	split := strings.Split(ghRes.Head.Label, ":")
 	remote, branchName = split[0], split[1]
@@ -22,10 +24,18 @@ func getRemoteAndBranchNameFromPRLink(url string) (remote, branchName string, er
 	return remote, branchName, nil
 }
 
-func gitCheckoutRemoteBranch(remoteName, branchName string) {
-	sh.Run("git", "remote", "add", remoteName, fmt.Sprintf("https://github.com/%s/e2e-tests.git", remoteName))
-	sh.Run("git", "fetch", remoteName)
-	sh.Run("git", "checkout", branchName)
+func gitCheckoutRemoteBranch(remoteName, branchName string) error {
+	var git = sh.RunCmd("git")
+	for _, arg := range [][]string{
+		{"remote", "add", remoteName, fmt.Sprintf("https://github.com/%s/e2e-tests.git", remoteName)},
+		{"fetch", remoteName},
+		{"checkout", branchName},
+	} {
+		if err := git(arg...); err != nil {
+			return fmt.Errorf("error when checkout out remote branch %s from remote %s: %v", branchName, remoteName, err)
+		}
+	}
+	return nil
 }
 
 func sendHttpRequestAndParseResponse(url, method string, v interface{}) error {

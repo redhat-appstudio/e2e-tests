@@ -56,10 +56,14 @@ func (ci CI) PrepareE2EBranch() error {
 	}
 
 	if openshiftJobSpec.Refs.Repo == "e2e-tests" {
-		gitCheckoutRemoteBranch(pr.Author, pr.CommitSHA)
+		if err := gitCheckoutRemoteBranch(pr.Author, pr.CommitSHA); err != nil {
+			return err
+		}
 	} else {
 		if ci.isPRPairingRequired() {
-			gitCheckoutRemoteBranch(pr.Author, pr.BranchName)
+			if err := gitCheckoutRemoteBranch(pr.Author, pr.BranchName); err != nil {
+				return err
+			}
 		}
 	}
 
