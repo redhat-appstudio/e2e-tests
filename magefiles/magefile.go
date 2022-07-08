@@ -206,7 +206,7 @@ func (CI) createOpenshiftUser() error {
 }
 
 func BootstrapCluster() error {
-	return sh.Run("./scripts/install-appstudio-e2e-mode.sh")
+	return sh.Run("./scripts/install-appstudio.sh")
 }
 
 func ConfigureSPI() error {
