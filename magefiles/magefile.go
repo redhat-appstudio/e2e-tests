@@ -16,6 +16,8 @@ var (
 	artifactDir      = utils.GetEnv("ARTIFACT_DIR", ".")
 	openshiftJobSpec = &OpenshiftJobSpec{}
 	pr               = &PullRequestMetadata{}
+	// can be periodic, presubmit or postsubmit
+	jobType = utils.GetEnv("JOB_TYPE", "")
 )
 
 func (CI) parseJobSpec() error {
@@ -29,6 +31,10 @@ func (CI) parseJobSpec() error {
 
 func (ci CI) init() error {
 	var err error
+
+	if jobType == "periodic" {
+		return nil
+	}
 
 	if err = ci.parseJobSpec(); err != nil {
 		return err
@@ -50,6 +56,9 @@ func (ci CI) init() error {
 }
 
 func (ci CI) PrepareE2EBranch() error {
+	if jobType == "periodic" {
+		return nil
+	}
 
 	if err := ci.init(); err != nil {
 		return err
