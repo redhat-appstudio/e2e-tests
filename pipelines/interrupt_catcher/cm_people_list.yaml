@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ic-people-list
+  namespace: appstudio-qe
+binaryData:
+  people-list: WwoJeyJ1c2VybmFtZSI6ICJtc2F3b29kIiwgImlkIjogIlVVUUpUNFlWQSJ9LAoJeyJ1c2VybmFtZSI6ICJyaG9wcCIsICJpZCI6ICJVR1pDTlFVNjkifSwKCXsidXNlcm5hbWUiOiAiZmxhY2F0dXMiLCAiaWQiOiAiVVM3MVZRVzNDIn0sCgl7InVzZXJuYW1lIjogImprb3ByaXZhIiwgImlkIjogIlVKTkZVS1dOOCJ9LAoJeyJ1c2VybmFtZSI6ICJhYmFyYmFybyIsICJpZCI6ICJVMDNBMU5GVEE0UiJ9Cl0=

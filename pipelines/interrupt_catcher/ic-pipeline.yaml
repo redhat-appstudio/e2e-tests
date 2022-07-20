@@ -1,0 +1,11 @@
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata: 
+  name: rotate-ic
+  namespace: appstudio-qe
+spec:
+  tasks:
+    - name: rotate-ic
+      taskRef:
+        kind: Task
+        name: rotate-ic
