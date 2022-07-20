@@ -17,7 +17,7 @@ var _ = framework.ChainsSuiteDescribe("Tekton Chains E2E tests", func() {
 	defer g.GinkgoRecover()
 
 	// Set this to true to skip contract tests
-	var skipContract bool = true
+	var skipContract bool = false
 	var skipContractMsg string = "Temporarily disabling until the EC task definition is updated"
 
 	// Initialize the tests controllers
@@ -104,34 +104,6 @@ var _ = framework.ChainsSuiteDescribe("Tekton Chains E2E tests", func() {
 				attestationTimeout.String(),
 			)
 			g.GinkgoWriter.Println("Cosign verify pass with .att and .sig ImageStreamTags found")
-		})
-		g.It("verify image attestation", func() {
-			if skipContract {
-				g.Skip(skipContractMsg)
-			}
-			generator := tekton.CosignVerify{
-				PipelineRunName: "cosign-verify-attestation",
-				Image:           imageWithDigest,
-				Bundle:          framework.TektonController.Bundles.HACBSTemplatesBundle,
-			}
-			pr, waitTrErr := kubeController.RunPipeline(generator, pipelineRunTimeout)
-			Expect(waitTrErr).NotTo(HaveOccurred())
-			waitErr := kubeController.WatchPipelineRun(pr.Name, pipelineRunTimeout)
-			Expect(waitErr).NotTo(HaveOccurred())
-		})
-		g.It("cosign verify", func() {
-			if skipContract {
-				g.Skip(skipContractMsg)
-			}
-			generator := tekton.CosignVerify{
-				PipelineRunName: "cosign-verify",
-				Image:           imageWithDigest,
-				Bundle:          framework.TektonController.Bundles.HACBSTemplatesBundle,
-			}
-			pr, waitTrErr := kubeController.RunPipeline(generator, pipelineRunTimeout)
-			Expect(waitTrErr).NotTo(HaveOccurred())
-			waitErr := kubeController.WatchPipelineRun(pr.Name, pipelineRunTimeout)
-			Expect(waitErr).NotTo(HaveOccurred())
 		})
 
 		g.Context("verify-enterprise-contract task", func() {
