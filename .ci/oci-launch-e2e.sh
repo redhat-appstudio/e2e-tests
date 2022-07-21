@@ -46,9 +46,13 @@ function waitSPIToBeReady() {
 }
 
 function executeE2ETests() {
-    make build
-    "${WORKSPACE}"/bin/e2e-appstudio --ginkgo.junit-report="${ARTIFACTS_DIR}"/e2e-report.xml --ginkgo.progress --ginkgo.v
+    ginkgo -p "${WORKSPACE}"/cmd --junit-report="${ARTIFACTS_DIR}"/e2e-report.xml --progress --vv -- --config-suites="${WORKSPACE}"/tests/e2e-demos/config/default.yaml
 }
+
+go install -mod=mod github.com/onsi/ginkgo/v2/ginkgo@latest
+go mod tidy -compat=1.17
+go mod vendor
+ginkgo version
 
 # Initiate openshift ci users
 export KUBECONFIG_TEST="/tmp/kubeconfig"
