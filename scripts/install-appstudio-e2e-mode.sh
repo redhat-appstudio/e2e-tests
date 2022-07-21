@@ -13,6 +13,7 @@ command -v oc >/dev/null 2>&1 || { echo "oc cli is not installed. Aborting."; ex
 export MY_GIT_FORK_REMOTE="qe"
 export MY_GITHUB_ORG=${GITHUB_E2E_ORGANIZATION:-"redhat-appstudio-qe"}
 export MY_GITHUB_TOKEN="${GITHUB_TOKEN}"
+export MY_QUAY_TOKEN="${QUAY_TOKEN}"
 export TEST_BRANCH_ID=$(date +%s)
 export ROOT_E2E="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"/..
 export WORKSPACE=${WORKSPACE:-${ROOT_E2E}}
@@ -38,6 +39,12 @@ function installCITools() {
 
 # Download gitops repository to install AppStudio in e2e mode.
 function cloneInfraDeployments() {
+    if [ -d $WORKSPACE"/tmp/infra-deployments" ] 
+    then
+        echo "Temp directory exists - deleting." 
+        rm -rf $WORKSPACE"/tmp/infra-deployments"
+    fi
+
     git clone https://$GITHUB_TOKEN@github.com/redhat-appstudio/infra-deployments.git "$WORKSPACE"/tmp/infra-deployments
 }
 
@@ -60,7 +67,7 @@ function initializeSPIVault() {
 function createApplicationServiceSecrets() {
     echo -e "[INFO] Creating application-service related secrets in $SHARED_SECRET_NAMESPACE namespace"
 
-    echo "$QUAY_TOKEN" | base64 --decode > docker.config
+    echo "$MY_QUAY_TOKEN" | base64 --decode > docker.config
     kubectl create secret docker-registry redhat-appstudio-user-workload -n $SHARED_SECRET_NAMESPACE --from-file=.dockerconfigjson=docker.config || true
     rm docker.config
 }

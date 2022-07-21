@@ -16,7 +16,7 @@ const (
 	missingReleaseStrategy string = "missing-release-strategy"
 )
 
-var _ = framework.ReleaseSuiteDescribe("test-release-service-failures", func() {
+var _ = framework.ReleaseSuiteDescribe("test-release-service-failures", Label("release"), func() {
 	defer GinkgoRecover()
 	// Initialize the tests controllers
 	framework, err := framework.NewFramework()

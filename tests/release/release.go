@@ -21,7 +21,7 @@ var snapshotComponents = []gitopsv1alpha1.ApplicationSnapshotComponent{
 	{"component-3", "quay.io/redhat-appstudio/component3@sha256:d90a0a33e4c5a1daf5877f8dd989a570bfae4f94211a8143599245e503775b1f"},
 }
 
-var _ = framework.ReleaseSuiteDescribe("test-release-service-happy-path", func() {
+var _ = framework.ReleaseSuiteDescribe("test-release-service-happy-path", Label("release"), func() {
 	defer GinkgoRecover()
 	// Initialize the tests controllers
 	framework, err := framework.NewFramework()

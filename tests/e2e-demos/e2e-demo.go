@@ -25,7 +25,7 @@ import (
 
 var AppStudioE2EApplicationsNamespace = utils.GetEnv(constants.E2E_APPLICATIONS_NAMESPACE_ENV, "appstudio-e2e-test")
 
-var _ = framework.E2ESuiteDescribe(func() {
+var _ = framework.E2ESuiteDescribe(Label("e2e-demo"), func() {
 	defer GinkgoRecover()
 
 	// Initialize the application struct
