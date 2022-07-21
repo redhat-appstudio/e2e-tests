@@ -35,7 +35,7 @@ const (
 	GitOpsRepositoryRevision string = "main"
 )
 
-var AppStudioE2EApplicationsNamespace = utils.GetEnv(constants.E2E_APPLICATIONS_NAMESPACE_ENV, fmt.Sprintf("appstudio-e2e-demo"))
+var AppStudioE2EApplicationsNamespace = utils.GetEnv(constants.E2E_APPLICATIONS_NAMESPACE_ENV, "appstudio-e2e-demo")
 
 var _ = framework.E2ESuiteDescribe(func() {
 	defer GinkgoRecover()
