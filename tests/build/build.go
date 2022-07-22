@@ -652,7 +652,7 @@ var _ = framework.BuildSuiteDescribe("Build service E2E tests", func() {
 			Expect(err).ShouldNot(HaveOccurred())
 			Eventually(func() ([]string, error) {
 				return f.HasController.GetHasComponentConditionStatusMessages(componentName, testNamespace)
-			}, timeout).Should(ContainElement(ContainSubstring("successfully created")))
+			}, timeout).Should(ContainElement(ContainSubstring("successfully")))
 		})
 		It("should succeed for ContainerImage field set to a custom (unprotected) repository without a tag being specified", func() {
 			outputContainerImage = fmt.Sprintf("quay.io/%s/test-images", utils.GetQuayIOOrganization())
@@ -660,7 +660,7 @@ var _ = framework.BuildSuiteDescribe("Build service E2E tests", func() {
 			Expect(err).ShouldNot(HaveOccurred())
 			Eventually(func() ([]string, error) {
 				return f.HasController.GetHasComponentConditionStatusMessages(componentName, testNamespace)
-			}, timeout).Should(ContainElement(ContainSubstring("successfully created")))
+			}, timeout).Should(ContainElement(ContainSubstring("successfully")))
 		})
 
 	})
