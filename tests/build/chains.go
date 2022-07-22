@@ -71,10 +71,10 @@ var _ = framework.ChainsSuiteDescribe("Tekton Chains E2E tests", func() {
 			pr, err := kubeController.RunPipeline(tekton.BuildahDemo{Image: image, Bundle: framework.TektonController.Bundles.BuildTemplatesBundle}, pipelineRunTimeout)
 			Expect(err).NotTo(HaveOccurred())
 			// Verify that the build task was created as expected.
-			Expect(buildPipelineRunName).To(Equal(pr.ObjectMeta.Name))
-			Expect(namespace).To(Equal(pr.ObjectMeta.Namespace))
+			Expect(pr.ObjectMeta.Name).To(Equal(buildPipelineRunName))
+			Expect(pr.ObjectMeta.Namespace).To(Equal(namespace))
 			Expect(kubeController.WatchPipelineRun(pr.Name, pipelineRunTimeout)).To(Succeed())
-			GinkgoWriter.Printf("The pipeline run is %q under namespace %q\n", pr.ObjectMeta.Name, pr.ObjectMeta.Namespace)
+			GinkgoWriter.Printf("The pipeline named %q in namespace %q suceeded\n", pr.ObjectMeta.Name, pr.ObjectMeta.Namespace)
 
 			// The TaskRun resource has been updated, refresh our reference.
 			pr, err = kubeController.Tektonctrl.GetPipelineRun(pr.ObjectMeta.Name, pr.ObjectMeta.Namespace)
@@ -82,12 +82,15 @@ var _ = framework.ChainsSuiteDescribe("Tekton Chains E2E tests", func() {
 
 			// Verify TaskRun has the type hinting required by Tekton Chains
 			digest, err := kubeController.GetTaskRunResult(pr, "build-container", "IMAGE_DIGEST")
-			Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("%s", err))
-			Expect(kubeController.GetTaskRunResult(pr, "build-container", "IMAGE_URL")).To(Equal(image))
-			GinkgoWriter.Printf("The image signed by Tekton Chains is %s@%s\n", image, digest)
+			Expect(err).NotTo(HaveOccurred())
+			i, err := kubeController.GetTaskRunResult(pr, "build-container", "IMAGE_URL")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(i).To(Equal(image))
 
 			// Specs now have a deterministic image reference for validation \o/
 			imageWithDigest = fmt.Sprintf("%s@%s", image, digest)
+
+			GinkgoWriter.Printf("The image signed by Tekton Chains is %s\n", imageWithDigest)
 		})
 
 		It("creates signature and attestation", func() {
@@ -99,7 +102,7 @@ var _ = framework.ChainsSuiteDescribe("Tekton Chains E2E tests", func() {
 					"Look at the chains-controller logs.",
 				attestationTimeout.String(),
 			)
-			GinkgoWriter.Println("Cosign verify pass with .att and .sig ImageStreamTags found")
+			GinkgoWriter.Printf("Cosign verify pass with .att and .sig ImageStreamTags found for %s\n", imageWithDigest)
 		})
 
 		Context("verify-enterprise-contract task", func() {
@@ -119,6 +122,7 @@ var _ = framework.ChainsSuiteDescribe("Tekton Chains E2E tests", func() {
 
 				rekorHost, err = kubeController.GetRekorHost()
 				Expect(err).ToNot(HaveOccurred())
+				GinkgoWriter.Printf("Configured Rekor host: %s\n", rekorHost)
 			})
 
 			BeforeEach(func() {
@@ -156,7 +160,7 @@ var _ = framework.ChainsSuiteDescribe("Tekton Chains E2E tests", func() {
 				Expect(err).NotTo(HaveOccurred())
 				tr, err := kubeController.GetTaskRunStatus(pr, "verify-enterprise-contract")
 				Expect(err).NotTo(HaveOccurred())
-				GinkgoWriter.Printf("Make sure task %q has passed\n", pr.Name)
+				GinkgoWriter.Printf("Make sure TaskRun of PipelineRun %s suceeded\n", pr.Name)
 				Expect(tr.Status.TaskRunResults).Should(ContainElements(
 					tekton.MatchTaskRunResultWithJSONValue("OUTPUT", `[
 						{
@@ -178,9 +182,9 @@ var _ = framework.ChainsSuiteDescribe("Tekton Chains E2E tests", func() {
 				// Refresh our copy of the PipelineRun for latest results
 				pr, err = kubeController.Tektonctrl.GetPipelineRun(pr.Name, pr.Namespace)
 				Expect(err).NotTo(HaveOccurred())
-				GinkgoWriter.Printf("Make sure pipeline %q has failed\n", pr.Name)
 				tr, err := kubeController.GetTaskRunStatus(pr, "verify-enterprise-contract")
 				Expect(err).NotTo(HaveOccurred())
+				GinkgoWriter.Printf("Make sure TaskRun %q suceeded\n", pr.Name)
 				Expect(tr.Status.TaskRunResults).Should(ContainElements(
 					tekton.MatchTaskRunResultWithJSONValue("OUTPUT", `[
 						{
