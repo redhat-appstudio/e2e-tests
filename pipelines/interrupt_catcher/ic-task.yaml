@@ -1,0 +1,55 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata: 
+  name: rotate-ic
+  namespace: appstudio-qe
+spec:
+  steps:
+    - env:
+        - name: TOKEN
+          valueFrom:
+            secretKeyRef:
+              key: token
+              name: slack-token
+      image: registry.access.redhat.com/ubi8/ubi-minimal:8.6
+      name: rotate-ic
+      script: |
+        #!/bin/bash
+
+        microdnf install jq
+
+        USERGROUP_ID=S03PD4MV58W
+        current_IC=$(curl -X POST -H "Authorization: Bearer $TOKEN" https://slack.com/api/usergroups.users.list?usergroup=$USERGROUP_ID | jq -r .users[0])
+        FOUND=false
+
+        ## Loop over the array of users
+        while read i; do
+            id=$(echo "$i" |jq -r ".id")
+            username=$(echo "$i" |jq -r ".username")
+
+            if [ "$FOUND" == true ]; then
+                echo "next in line is $username"
+                curl -X POST -H "Authorization: Bearer $TOKEN" "https://slack.com/api/usergroups.users.update?usergroup=${USERGROUP_ID}&users=${id}"
+                FOUND=set
+                break
+            fi
+            if [ "$id" == "$current_IC" ]; then
+                echo "found username: $username"
+                FOUND=true
+            fi
+        done <<< $(jq -c ".[]" /var/people-list/people-list)
+
+
+        if [ "$FOUND" == true ]; then
+            id=$(jq -r ".[0].id" /var/people-list/people-list)
+            username=$(jq -r ".[0].username" /var/people-list/people-list)
+            echo "next in line is $username"
+            curl -X POST -H "Authorization: Bearer $TOKEN" "https://slack.com/api/usergroups.users.update?usergroup=${USERGROUP_ID}&users=${id}"
+        fi
+      volumeMounts: 
+        - name: people-list
+          mountPath: /var/people-list
+  volumes:
+    - name: people-list
+      configMap:
+        name: ic-people-list

@@ -1,0 +1,11 @@
+apiVersion: triggers.tekton.dev/v1alpha1
+kind: EventListener
+metadata:
+  name: ic-trigger-listener
+  namespace: appstudio-qe
+spec:
+  serviceAccountName: pipeline
+  triggers:
+    - name: cron-trig
+      template:
+        ref: pipeline-template

@@ -1,0 +1,16 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: interrupt-catcher
+  namespace: appstudio-qe
+spec:
+  schedule: "0 10 * * 4" # Every thursday at 10 AM
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          containers:
+          - name: trigger
+            image: curlimages/curl
+            args: ["curl", "-X", "POST", "--data", "{}", "el-ic-trigger-listener.appstudio-qe.svc.cluster.local:8080"]
+          restartPolicy: Never
