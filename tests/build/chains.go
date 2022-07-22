@@ -1,16 +1,22 @@
 package build
 
 import (
+	"context"
 	"fmt"
 	"time"
 
 	"github.com/devfile/library/pkg/util"
-	"github.com/redhat-appstudio/e2e-tests/pkg/constants"
-	"github.com/redhat-appstudio/e2e-tests/pkg/utils/tekton"
-
+	ecp "github.com/hacbs-contract/enterprise-contract-controller/api/v1alpha1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/yaml"
+
+	"github.com/redhat-appstudio/e2e-tests/pkg/constants"
 	"github.com/redhat-appstudio/e2e-tests/pkg/framework"
+	"github.com/redhat-appstudio/e2e-tests/pkg/utils/common"
+	"github.com/redhat-appstudio/e2e-tests/pkg/utils/tekton"
 )
 
 var _ = framework.ChainsSuiteDescribe("Tekton Chains E2E tests", func() {
@@ -60,6 +66,26 @@ var _ = framework.ChainsSuiteDescribe("Tekton Chains E2E tests", func() {
 			Commonctrl: *framework.CommonController,
 			Tektonctrl: *framework.TektonController,
 			Namespace:  constants.TEKTON_CHAINS_NS,
+		}
+
+		// the default policy source
+		rev := "main"
+		policySource := ecp.GitPolicySource{
+			Repository: "https://github.com/hacbs-contract/ec-policies.git",
+			Revision:   &rev,
+		}
+
+		// if there is a ConfigMap e2e-tests/ec-config with keys `revision` and
+		// `repository` values from those will replace the default policy source
+		// this gives us a way to set the tests to use a different policy if we
+		// break the tests in the default policy source
+		if config, err := framework.CommonController.K8sClient.KubeInterface().CoreV1().ConfigMaps("e2e-tests").Get(context.TODO(), "ec-config", v1.GetOptions{}); err != nil {
+			if v, ok := config.Data["revision"]; ok {
+				policySource.Revision = &v
+			}
+			if v, ok := config.Data["repository"]; ok {
+				policySource.Repository = v
+			}
 		}
 
 		var imageWithDigest string
@@ -139,18 +165,34 @@ var _ = framework.ChainsSuiteDescribe("Tekton Chains E2E tests", func() {
 
 				// Since specs could update the config policy, make sure it has a consistent
 				// baseline at the start of each spec.
-				baselinePolicies := `{"non_blocking_checks":["not_useful"]}`
-				GinkgoWriter.Printf("Set the non-blocking checks to baseline policies: %s\n", baselinePolicies)
-				Expect(kubeController.CreateOrUpdateConfigPolicy(
-					namespace, baselinePolicies)).To(Succeed())
+				baselinePolicies := ecp.EnterpriseContractPolicySpec{
+					Sources: []ecp.PolicySource{
+						{
+							GitRepository: &policySource,
+						},
+					},
+					Exceptions: &ecp.EnterpriseContractPolicyExceptions{
+						NonBlocking: []string{}, // verify-enterprise-contract-v1 will fail unless we have something here
+					},
+				}
+				Expect(kubeController.CreateOrUpdatePolicyConfiguration(namespace, baselinePolicies)).To(Succeed())
+				printPolicyConfiguration(baselinePolicies)
 			})
 
 			It("succeeds when policy is met", func() {
 				// Setup a policy config to ignore the policy check for tests
-				policies := `{"non_blocking_checks":["not_useful", "test"]}`
-				GinkgoWriter.Printf("Set the non-blocking checks to policies: %s\n", policies)
-				Expect(kubeController.CreateOrUpdateConfigPolicy(
-					namespace, policies)).To(Succeed())
+				policy := ecp.EnterpriseContractPolicySpec{
+					Sources: []ecp.PolicySource{
+						{
+							GitRepository: &policySource,
+						},
+					},
+					Exceptions: &ecp.EnterpriseContractPolicyExceptions{
+						NonBlocking: []string{"not_useful", "test", "tasks"},
+					},
+				}
+				Expect(kubeController.CreateOrUpdatePolicyConfiguration(namespace, policy)).To(Succeed())
+				printPolicyConfiguration(policy)
 				pr, err := kubeController.RunPipeline(generator, pipelineRunTimeout)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(kubeController.WatchPipelineRun(pr.Name, pipelineRunTimeout)).To(Succeed())
@@ -160,15 +202,11 @@ var _ = framework.ChainsSuiteDescribe("Tekton Chains E2E tests", func() {
 				Expect(err).NotTo(HaveOccurred())
 				tr, err := kubeController.GetTaskRunStatus(pr, "verify-enterprise-contract")
 				Expect(err).NotTo(HaveOccurred())
+				printTaskRunStatus(tr, namespace, *framework.CommonController)
 				GinkgoWriter.Printf("Make sure TaskRun of PipelineRun %s suceeded\n", pr.Name)
+				Expect(tekton.DidTaskSucceed(tr)).To(BeTrue())
+				GinkgoWriter.Printf("Make sure EC results for PipelineRun %s are passing\n", pr.Name)
 				Expect(tr.Status.TaskRunResults).Should(ContainElements(
-					tekton.MatchTaskRunResultWithJSONValue("OUTPUT", `[
-						{
-							"filename": "/shared/ec-work-dir/input/input.json",
-							"namespace": "release.main",
-							"successes": 2
-						}
-					]`),
 					tekton.MatchTaskRunResult("PASSED", "true"),
 				))
 			})
@@ -184,26 +222,9 @@ var _ = framework.ChainsSuiteDescribe("Tekton Chains E2E tests", func() {
 				Expect(err).NotTo(HaveOccurred())
 				tr, err := kubeController.GetTaskRunStatus(pr, "verify-enterprise-contract")
 				Expect(err).NotTo(HaveOccurred())
-				GinkgoWriter.Printf("Make sure TaskRun %q suceeded\n", pr.Name)
-				Expect(tr.Status.TaskRunResults).Should(ContainElements(
-					tekton.MatchTaskRunResultWithJSONValue("OUTPUT", `[
-						{
-							"filename": "/shared/ec-work-dir/input/input.json",
-							"namespace": "release.main",
-							"successes": 1,
-							"failures": [
-								{
-									"msg": "No test data found",
-									"metadata": {
-										"code": "test_data_missing",
-										"effective_on": "2022-01-01T00:00:00Z"
-									}
-								}
-							]
-						}
-					]`),
-					tekton.MatchTaskRunResult("PASSED", "false"),
-				))
+				printTaskRunStatus(tr, namespace, *framework.CommonController)
+				GinkgoWriter.Printf("Make sure TaskRun %q has not suceeded\n", pr.Name)
+				Expect(tekton.DidTaskSucceed(tr)).To(BeFalse())
 			})
 
 			It("fails when tests are not satisfied on strict mode", func() {
@@ -215,10 +236,11 @@ var _ = framework.ChainsSuiteDescribe("Tekton Chains E2E tests", func() {
 				// Refresh our copy of the PipelineRun for latest results
 				pr, err = kubeController.Tektonctrl.GetPipelineRun(pr.Name, pr.Namespace)
 				Expect(err).NotTo(HaveOccurred())
-				GinkgoWriter.Printf("Make sure pipeline %q has failed\n", pr.Name)
 				tr, err := kubeController.GetTaskRunStatus(pr, "verify-enterprise-contract")
 				Expect(err).NotTo(HaveOccurred())
-				Expect(tr.Status.GetCondition("Succeeded").IsTrue()).To(BeFalse())
+				GinkgoWriter.Printf("Task run status %#v\n", tr.Status)
+				GinkgoWriter.Printf("Make sure pipeline %q has not suceeded\n", pr.Name)
+				Expect(tekton.DidTaskSucceed(tr)).To(BeFalse())
 				// Because the task fails, no results are created
 			})
 
@@ -250,3 +272,45 @@ var _ = framework.ChainsSuiteDescribe("Tekton Chains E2E tests", func() {
 
 	})
 })
+
+func printPolicyConfiguration(policy ecp.EnterpriseContractPolicySpec) {
+	sources := ""
+	for i, s := range policy.Sources {
+		if i != 0 {
+			sources += "\n"
+		}
+		if s.GitRepository != nil {
+			if s.GitRepository.Revision != nil {
+				sources += fmt.Sprintf("[%d] repository: '%s', revision: '%s'", i, s.GitRepository.Repository, *s.GitRepository.Revision)
+			} else {
+				sources += fmt.Sprintf("[%d] repository: '%s'", i, s.GitRepository.Repository)
+			}
+		}
+	}
+	exceptions := "[]"
+	if policy.Exceptions != nil {
+		exceptions = fmt.Sprintf("%v", policy.Exceptions.NonBlocking)
+	}
+	GinkgoWriter.Printf("Configured sources: %s\nand non-blocking policies: %v\n", sources, exceptions)
+}
+
+func printTaskRunStatus(tr *v1beta1.PipelineRunTaskRunStatus, namespace string, sc common.SuiteController) {
+	if tr.Status == nil {
+		GinkgoWriter.Printf("*** TaskRun status: nil")
+		return
+	}
+
+	if y, err := yaml.Marshal(tr.Status); err == nil {
+		GinkgoWriter.Printf("*** TaskRun status:\n%s\n", string(y))
+	} else {
+		GinkgoWriter.Printf("*** Unable to serialize TaskRunStatus to YAML: %#v; error: %s", tr.Status, err)
+	}
+
+	for _, s := range tr.Status.TaskRunStatusFields.Steps {
+		if logs, err := sc.GetContainerLogs(tr.Status.PodName, s.ContainerName, namespace); err == nil {
+			GinkgoWriter.Printf("*** Logs from pod '%s', container '%s':\n----- START -----%s----- END -----\n", tr.Status.PodName, s.ContainerName, logs)
+		} else {
+			GinkgoWriter.Printf("*** Can't fetch logs from pod '%s', container '%s': %s", tr.Status.PodName, s.ContainerName, err)
+		}
+	}
+}

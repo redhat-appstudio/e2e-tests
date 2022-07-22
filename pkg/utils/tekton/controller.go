@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	ecp "github.com/hacbs-contract/enterprise-contract-controller/api/v1alpha1"
 	kubeCl "github.com/redhat-appstudio/e2e-tests/pkg/apis/kubernetes"
 	"github.com/redhat-appstudio/e2e-tests/pkg/utils/common"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
@@ -451,32 +452,43 @@ func (k KubeController) GetPublicKey(name, namespace string) (publicKey []byte, 
 	return
 }
 
-func (k KubeController) CreateOrUpdateConfigPolicy(namespace string, policy string) (err error) {
-	api := k.Tektonctrl.K8sClient.KubeInterface().CoreV1().ConfigMaps(namespace)
-	ctx := context.TODO()
-
-	configPolicyName := "ec-policy"
-	expectedConfigMap := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{Name: configPolicyName},
-		Data:       map[string]string{"policy.json": policy},
+func (k KubeController) CreateOrUpdatePolicyConfiguration(namespace string, policy ecp.EnterpriseContractPolicySpec) error {
+	ecPolicy := ecp.EnterpriseContractPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "ec-policy",
+			Namespace: namespace,
+		},
 	}
 
-	cm, err := api.Get(ctx, configPolicyName, metav1.GetOptions{})
+	// fetch to see if it exists
+	err := k.Tektonctrl.K8sClient.KubeRest().Get(context.TODO(), crclient.ObjectKey{
+		Namespace: namespace,
+		Name:      "ec-policy",
+	}, &ecPolicy)
+
+	exists := true
 	if err != nil {
-		if !errors.IsNotFound(err) {
-			return
+		if errors.IsNotFound(err) {
+			exists = false
+		} else {
+			return err
 		}
-		if _, err = api.Create(ctx, expectedConfigMap, metav1.CreateOptions{}); err != nil {
-			return
+	}
+
+	ecPolicy.Spec = policy
+	if !exists {
+		// it doesn't, so create
+		if err := k.Tektonctrl.K8sClient.KubeRest().Create(context.TODO(), &ecPolicy); err != nil {
+			return err
 		}
 	} else {
-		if cm.Data["policy.json"] != policy {
-			if _, err = api.Update(ctx, expectedConfigMap, metav1.UpdateOptions{}); err != nil {
-				return
-			}
+		// it does, so update
+		if err := k.Tektonctrl.K8sClient.KubeRest().Update(context.TODO(), &ecPolicy); err != nil {
+			return err
 		}
 	}
-	return
+
+	return nil
 }
 
 func (k KubeController) GetRekorHost() (rekorHost string, err error) {
