@@ -7,6 +7,7 @@ import (
 	managedgitopsv1alpha1 "github.com/redhat-appstudio/managed-gitops/backend/apis/managed-gitops/v1alpha1"
 
 	toolchainv1alpha1 "github.com/codeready-toolchain/api/api/v1alpha1"
+	ecp "github.com/hacbs-contract/enterprise-contract-controller/api/v1alpha1"
 	integrationservice "github.com/redhat-appstudio/integration-service/api/v1alpha1"
 	jvmbuildservice "github.com/redhat-appstudio/jvm-build-service/pkg/apis/jvmbuildservice/v1alpha1"
 	jvmbuildserviceclientset "github.com/redhat-appstudio/jvm-build-service/pkg/client/clientset/versioned"
@@ -45,6 +46,7 @@ func init() {
 	utilruntime.Must(gitopsv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(integrationservice.AddToScheme(scheme))
 	utilruntime.Must(jvmbuildservice.AddToScheme(scheme))
+	utilruntime.Must(ecp.AddToScheme(scheme))
 }
 
 // Kube returns the clientset for Kubernetes upstream.

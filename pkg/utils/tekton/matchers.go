@@ -7,6 +7,7 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	"knative.dev/pkg/apis"
 )
 
 type TaskRunResultMatcher struct {
@@ -61,4 +62,14 @@ func MatchTaskRunResult(name, value string) types.GomegaMatcher {
 
 func MatchTaskRunResultWithJSONValue(name string, json interface{}) types.GomegaMatcher {
 	return &TaskRunResultMatcher{name: name, jsonValue: &json}
+}
+
+func DidTaskSucceed(tr interface{}) bool {
+	switch tr := tr.(type) {
+	case *v1beta1.PipelineRunTaskRunStatus:
+		return tr.Status.GetCondition(apis.ConditionSucceeded).IsTrue()
+	case *v1beta1.TaskRunStatus:
+		return tr.Status.GetCondition(apis.ConditionSucceeded).IsTrue()
+	}
+	return false
 }

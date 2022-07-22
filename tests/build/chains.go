@@ -1,56 +1,58 @@
 package build
 
 import (
+	"context"
 	"fmt"
 	"time"
 
 	"github.com/devfile/library/pkg/util"
-	"github.com/redhat-appstudio/e2e-tests/pkg/constants"
-	"github.com/redhat-appstudio/e2e-tests/pkg/utils/tekton"
-
-	g "github.com/onsi/ginkgo/v2"
+	ecp "github.com/hacbs-contract/enterprise-contract-controller/api/v1alpha1"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/yaml"
+
+	"github.com/redhat-appstudio/e2e-tests/pkg/constants"
 	"github.com/redhat-appstudio/e2e-tests/pkg/framework"
+	"github.com/redhat-appstudio/e2e-tests/pkg/utils/common"
+	"github.com/redhat-appstudio/e2e-tests/pkg/utils/tekton"
 )
 
 var _ = framework.ChainsSuiteDescribe("Tekton Chains E2E tests", func() {
-	defer g.GinkgoRecover()
-
-	// Set this to true to skip contract tests
-	var skipContract bool = true
-	var skipContractMsg string = "Temporarily disabling until the EC task definition is updated"
+	defer GinkgoRecover()
 
 	// Initialize the tests controllers
 	framework, err := framework.NewFramework()
 	Expect(err).NotTo(HaveOccurred())
 
-	g.Context("infrastructure is running", func() {
-		g.It("verify the chains controller is running", func() {
+	Context("infrastructure is running", func() {
+		It("verify the chains controller is running", func() {
 			err := framework.CommonController.WaitForPodSelector(framework.CommonController.IsPodRunning, constants.TEKTON_CHAINS_NS, "app", "tekton-chains-controller", 60, 100)
 			Expect(err).NotTo(HaveOccurred())
 		})
-		g.It("verify the correct secrets have been created", func() {
+		It("verify the correct secrets have been created", func() {
 			_, err := framework.CommonController.GetSecret(constants.TEKTON_CHAINS_NS, "chains-ca-cert")
 			Expect(err).NotTo(HaveOccurred())
 		})
-		g.It("verify the correct roles are created", func() {
+		It("verify the correct roles are created", func() {
 			_, csaErr := framework.CommonController.GetRole("chains-secret-admin", constants.TEKTON_CHAINS_NS)
 			Expect(csaErr).NotTo(HaveOccurred())
 			_, srErr := framework.CommonController.GetRole("secret-reader", "openshift-ingress-operator")
 			Expect(srErr).NotTo(HaveOccurred())
 		})
-		g.It("verify the correct rolebindings are created", func() {
+		It("verify the correct rolebindings are created", func() {
 			_, csaErr := framework.CommonController.GetRoleBinding("chains-secret-admin", constants.TEKTON_CHAINS_NS)
 			Expect(csaErr).NotTo(HaveOccurred())
 			_, csrErr := framework.CommonController.GetRoleBinding("chains-secret-reader", "openshift-ingress-operator")
 			Expect(csrErr).NotTo(HaveOccurred())
 		})
-		g.It("verify the correct service account is created", func() {
+		It("verify the correct service account is created", func() {
 			_, err := framework.CommonController.GetServiceAccount("chains-secrets-admin", constants.TEKTON_CHAINS_NS)
 			Expect(err).NotTo(HaveOccurred())
 		})
 	})
-	g.Context("test creating and signing an image and task", func() {
+	Context("test creating and signing an image and task", func() {
 		// Make the TaskRun name and namespace predictable. For convenience, the name of the
 		// TaskRun that builds an image, is the same as the repository where the image is
 		// pushed to.
@@ -66,19 +68,39 @@ var _ = framework.ChainsSuiteDescribe("Tekton Chains E2E tests", func() {
 			Namespace:  constants.TEKTON_CHAINS_NS,
 		}
 
+		// the default policy source
+		rev := "main"
+		policySource := ecp.GitPolicySource{
+			Repository: "https://github.com/hacbs-contract/ec-policies.git",
+			Revision:   &rev,
+		}
+
+		// if there is a ConfigMap e2e-tests/ec-config with keys `revision` and
+		// `repository` values from those will replace the default policy source
+		// this gives us a way to set the tests to use a different policy if we
+		// break the tests in the default policy source
+		if config, err := framework.CommonController.K8sClient.KubeInterface().CoreV1().ConfigMaps("e2e-tests").Get(context.TODO(), "ec-config", v1.GetOptions{}); err != nil {
+			if v, ok := config.Data["revision"]; ok {
+				policySource.Revision = &v
+			}
+			if v, ok := config.Data["repository"]; ok {
+				policySource.Repository = v
+			}
+		}
+
 		var imageWithDigest string
 
-		g.BeforeAll(func() {
+		BeforeAll(func() {
 			// At a bare minimum, each spec within this context relies on the existence of
 			// an image that has been signed by Tekton Chains. Trigger a demo task to fulfill
 			// this purpose.
 			pr, err := kubeController.RunPipeline(tekton.BuildahDemo{Image: image, Bundle: framework.TektonController.Bundles.BuildTemplatesBundle}, pipelineRunTimeout)
 			Expect(err).NotTo(HaveOccurred())
 			// Verify that the build task was created as expected.
-			Expect(buildPipelineRunName).To(Equal(pr.ObjectMeta.Name))
-			Expect(namespace).To(Equal(pr.ObjectMeta.Namespace))
+			Expect(pr.ObjectMeta.Name).To(Equal(buildPipelineRunName))
+			Expect(pr.ObjectMeta.Namespace).To(Equal(namespace))
 			Expect(kubeController.WatchPipelineRun(pr.Name, pipelineRunTimeout)).To(Succeed())
-			g.GinkgoWriter.Printf("The pipeline run is %q under namespace %q\n", pr.ObjectMeta.Name, pr.ObjectMeta.Namespace)
+			GinkgoWriter.Printf("The pipeline named %q in namespace %q suceeded\n", pr.ObjectMeta.Name, pr.ObjectMeta.Namespace)
 
 			// The TaskRun resource has been updated, refresh our reference.
 			pr, err = kubeController.Tektonctrl.GetPipelineRun(pr.ObjectMeta.Name, pr.ObjectMeta.Namespace)
@@ -86,15 +108,18 @@ var _ = framework.ChainsSuiteDescribe("Tekton Chains E2E tests", func() {
 
 			// Verify TaskRun has the type hinting required by Tekton Chains
 			digest, err := kubeController.GetTaskRunResult(pr, "build-container", "IMAGE_DIGEST")
-			Expect(err).NotTo(HaveOccurred(), fmt.Sprintf("%s", err))
-			Expect(kubeController.GetTaskRunResult(pr, "build-container", "IMAGE_URL")).To(Equal(image))
-			g.GinkgoWriter.Printf("The image signed by Tekton Chains is %s@%s\n", image, digest)
+			Expect(err).NotTo(HaveOccurred())
+			i, err := kubeController.GetTaskRunResult(pr, "build-container", "IMAGE_URL")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(i).To(Equal(image))
 
 			// Specs now have a deterministic image reference for validation \o/
 			imageWithDigest = fmt.Sprintf("%s@%s", image, digest)
+
+			GinkgoWriter.Printf("The image signed by Tekton Chains is %s\n", imageWithDigest)
 		})
 
-		g.It("creates signature and attestation", func() {
+		It("creates signature and attestation", func() {
 			err = kubeController.AwaitAttestationAndSignature(imageWithDigest, attestationTimeout)
 			Expect(err).NotTo(
 				HaveOccurred(),
@@ -103,57 +128,30 @@ var _ = framework.ChainsSuiteDescribe("Tekton Chains E2E tests", func() {
 					"Look at the chains-controller logs.",
 				attestationTimeout.String(),
 			)
-			g.GinkgoWriter.Println("Cosign verify pass with .att and .sig ImageStreamTags found")
-		})
-		g.It("verify image attestation", func() {
-			if skipContract {
-				g.Skip(skipContractMsg)
-			}
-			generator := tekton.CosignVerify{
-				PipelineRunName: "cosign-verify-attestation",
-				Image:           imageWithDigest,
-				Bundle:          framework.TektonController.Bundles.HACBSTemplatesBundle,
-			}
-			pr, waitTrErr := kubeController.RunPipeline(generator, pipelineRunTimeout)
-			Expect(waitTrErr).NotTo(HaveOccurred())
-			waitErr := kubeController.WatchPipelineRun(pr.Name, pipelineRunTimeout)
-			Expect(waitErr).NotTo(HaveOccurred())
-		})
-		g.It("cosign verify", func() {
-			if skipContract {
-				g.Skip(skipContractMsg)
-			}
-			generator := tekton.CosignVerify{
-				PipelineRunName: "cosign-verify",
-				Image:           imageWithDigest,
-				Bundle:          framework.TektonController.Bundles.HACBSTemplatesBundle,
-			}
-			pr, waitTrErr := kubeController.RunPipeline(generator, pipelineRunTimeout)
-			Expect(waitTrErr).NotTo(HaveOccurred())
-			waitErr := kubeController.WatchPipelineRun(pr.Name, pipelineRunTimeout)
-			Expect(waitErr).NotTo(HaveOccurred())
+			GinkgoWriter.Printf("Cosign verify pass with .att and .sig ImageStreamTags found for %s\n", imageWithDigest)
 		})
 
-		g.Context("verify-enterprise-contract task", func() {
+		Context("verify-enterprise-contract task", func() {
 			var generator tekton.VerifyEnterpriseContract
 			var rekorHost string
 			publicSecretName := "cosign-public-key"
 
-			g.BeforeAll(func() {
+			BeforeAll(func() {
 				// Copy the public key from tekton-chains/signing-secrets to a new
 				// secret that contains just the public key to ensure that access
 				// to password and private key are not needed.
 				publicKey, err := kubeController.GetPublicKey("signing-secrets", "tekton-chains")
 				Expect(err).ToNot(HaveOccurred())
-				g.GinkgoWriter.Println("Copy public key from tekton-chains/signing-secrets to a new secret")
+				GinkgoWriter.Println("Copy public key from tekton-chains/signing-secrets to a new secret")
 				Expect(kubeController.CreateOrUpdateSigningSecret(
 					publicKey, publicSecretName, namespace)).To(Succeed())
 
 				rekorHost, err = kubeController.GetRekorHost()
 				Expect(err).ToNot(HaveOccurred())
+				GinkgoWriter.Printf("Configured Rekor host: %s\n", rekorHost)
 			})
 
-			g.BeforeEach(func() {
+			BeforeEach(func() {
 				generator = tekton.VerifyEnterpriseContract{
 					PipelineRunName: "verify-enterprise-contract",
 					ImageRef:        imageWithDigest,
@@ -167,21 +165,34 @@ var _ = framework.ChainsSuiteDescribe("Tekton Chains E2E tests", func() {
 
 				// Since specs could update the config policy, make sure it has a consistent
 				// baseline at the start of each spec.
-				baselinePolicies := `{"non_blocking_checks":["not_useful"]}`
-				g.GinkgoWriter.Printf("Set the non-blocking checks to baseline policies: %s\n", baselinePolicies)
-				Expect(kubeController.CreateOrUpdateConfigPolicy(
-					namespace, baselinePolicies)).To(Succeed())
+				baselinePolicies := ecp.EnterpriseContractPolicySpec{
+					Sources: []ecp.PolicySource{
+						{
+							GitRepository: &policySource,
+						},
+					},
+					Exceptions: &ecp.EnterpriseContractPolicyExceptions{
+						NonBlocking: []string{}, // verify-enterprise-contract-v1 will fail unless we have something here
+					},
+				}
+				Expect(kubeController.CreateOrUpdatePolicyConfiguration(namespace, baselinePolicies)).To(Succeed())
+				printPolicyConfiguration(baselinePolicies)
 			})
 
-			g.It("succeeds when policy is met", func() {
-				if skipContract {
-					g.Skip(skipContractMsg)
-				}
+			It("succeeds when policy is met", func() {
 				// Setup a policy config to ignore the policy check for tests
-				policies := `{"non_blocking_checks":["not_useful", "test"]}`
-				g.GinkgoWriter.Printf("Set the non-blocking checks to policies: %s\n", policies)
-				Expect(kubeController.CreateOrUpdateConfigPolicy(
-					namespace, policies)).To(Succeed())
+				policy := ecp.EnterpriseContractPolicySpec{
+					Sources: []ecp.PolicySource{
+						{
+							GitRepository: &policySource,
+						},
+					},
+					Exceptions: &ecp.EnterpriseContractPolicyExceptions{
+						NonBlocking: []string{"not_useful", "test", "tasks"},
+					},
+				}
+				Expect(kubeController.CreateOrUpdatePolicyConfiguration(namespace, policy)).To(Succeed())
+				printPolicyConfiguration(policy)
 				pr, err := kubeController.RunPipeline(generator, pipelineRunTimeout)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(kubeController.WatchPipelineRun(pr.Name, pipelineRunTimeout)).To(Succeed())
@@ -191,23 +202,16 @@ var _ = framework.ChainsSuiteDescribe("Tekton Chains E2E tests", func() {
 				Expect(err).NotTo(HaveOccurred())
 				tr, err := kubeController.GetTaskRunStatus(pr, "verify-enterprise-contract")
 				Expect(err).NotTo(HaveOccurred())
-				g.GinkgoWriter.Printf("Make sure task %q has passed\n", pr.Name)
+				printTaskRunStatus(tr, namespace, *framework.CommonController)
+				GinkgoWriter.Printf("Make sure TaskRun of PipelineRun %s suceeded\n", pr.Name)
+				Expect(tekton.DidTaskSucceed(tr)).To(BeTrue())
+				GinkgoWriter.Printf("Make sure EC results for PipelineRun %s are passing\n", pr.Name)
 				Expect(tr.Status.TaskRunResults).Should(ContainElements(
-					tekton.MatchTaskRunResultWithJSONValue("OUTPUT", `[
-						{
-							"filename": "/shared/ec-work-dir/input/input.json",
-							"namespace": "release.main",
-							"successes": 2
-						}
-					]`),
 					tekton.MatchTaskRunResult("PASSED", "true"),
 				))
 			})
 
-			g.It("does not pass when tests are not satisfied on non-strict mode", func() {
-				if skipContract {
-					g.Skip(skipContractMsg)
-				}
+			It("does not pass when tests are not satisfied on non-strict mode", func() {
 				generator.StrictPolicy = "0"
 				pr, err := kubeController.RunPipeline(generator, pipelineRunTimeout)
 				Expect(err).NotTo(HaveOccurred())
@@ -216,34 +220,14 @@ var _ = framework.ChainsSuiteDescribe("Tekton Chains E2E tests", func() {
 				// Refresh our copy of the PipelineRun for latest results
 				pr, err = kubeController.Tektonctrl.GetPipelineRun(pr.Name, pr.Namespace)
 				Expect(err).NotTo(HaveOccurred())
-				g.GinkgoWriter.Printf("Make sure pipeline %q has failed\n", pr.Name)
 				tr, err := kubeController.GetTaskRunStatus(pr, "verify-enterprise-contract")
 				Expect(err).NotTo(HaveOccurred())
-				Expect(tr.Status.TaskRunResults).Should(ContainElements(
-					tekton.MatchTaskRunResultWithJSONValue("OUTPUT", `[
-						{
-							"filename": "/shared/ec-work-dir/input/input.json",
-							"namespace": "release.main",
-							"successes": 1,
-							"failures": [
-								{
-									"msg": "No test data found",
-									"metadata": {
-										"code": "test_data_missing",
-										"effective_on": "2022-01-01T00:00:00Z"
-									}
-								}
-							]
-						}
-					]`),
-					tekton.MatchTaskRunResult("PASSED", "false"),
-				))
+				printTaskRunStatus(tr, namespace, *framework.CommonController)
+				GinkgoWriter.Printf("Make sure TaskRun %q has not suceeded\n", pr.Name)
+				Expect(tekton.DidTaskSucceed(tr)).To(BeFalse())
 			})
 
-			g.It("fails when tests are not satisfied on strict mode", func() {
-				if skipContract {
-					g.Skip(skipContractMsg)
-				}
+			It("fails when tests are not satisfied on strict mode", func() {
 				pr, err := kubeController.RunPipeline(generator, pipelineRunTimeout)
 				Expect(err).NotTo(HaveOccurred())
 				err = kubeController.WatchPipelineRun(pr.Name, pipelineRunTimeout)
@@ -252,23 +236,21 @@ var _ = framework.ChainsSuiteDescribe("Tekton Chains E2E tests", func() {
 				// Refresh our copy of the PipelineRun for latest results
 				pr, err = kubeController.Tektonctrl.GetPipelineRun(pr.Name, pr.Namespace)
 				Expect(err).NotTo(HaveOccurred())
-				g.GinkgoWriter.Printf("Make sure pipeline %q has failed\n", pr.Name)
 				tr, err := kubeController.GetTaskRunStatus(pr, "verify-enterprise-contract")
 				Expect(err).NotTo(HaveOccurred())
-				Expect(tr.Status.GetCondition("Succeeded").IsTrue()).To(BeFalse())
+				GinkgoWriter.Printf("Task run status %#v\n", tr.Status)
+				GinkgoWriter.Printf("Make sure pipeline %q has not suceeded\n", pr.Name)
+				Expect(tekton.DidTaskSucceed(tr)).To(BeFalse())
 				// Because the task fails, no results are created
 			})
 
-			g.It("fails when unexpected signature is used", func() {
-				if skipContract {
-					g.Skip(skipContractMsg)
-				}
+			It("fails when unexpected signature is used", func() {
 				secretName := fmt.Sprintf("dummy-public-key-%s", util.GenerateRandomString(10))
 				publicKey := []byte("-----BEGIN PUBLIC KEY-----\n" +
 					"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAENZxkE/d0fKvJ51dXHQmxXaRMTtVz\n" +
 					"BQWcmJD/7pcMDEmBcmk8O1yUPIiFj5TMZqabjS9CQQN+jKHG+Bfi0BYlHg==\n" +
 					"-----END PUBLIC KEY-----")
-				g.GinkgoWriter.Println("Create an unexpected public signing key")
+				GinkgoWriter.Println("Create an unexpected public signing key")
 				Expect(kubeController.CreateOrUpdateSigningSecret(publicKey, secretName, namespace)).To(Succeed())
 				generator.PublicSecret = fmt.Sprintf("k8s://%s/%s", namespace, secretName)
 
@@ -280,7 +262,7 @@ var _ = framework.ChainsSuiteDescribe("Tekton Chains E2E tests", func() {
 				// Refresh our copy of the PipelineRun for latest results
 				pr, err = kubeController.Tektonctrl.GetPipelineRun(pr.Name, pr.Namespace)
 				Expect(err).NotTo(HaveOccurred())
-				g.GinkgoWriter.Printf("Make sure pipeline %q has failed\n", pr.Name)
+				GinkgoWriter.Printf("Make sure pipeline %q has failed\n", pr.Name)
 				tr, err := kubeController.GetTaskRunStatus(pr, "verify-enterprise-contract")
 				Expect(err).NotTo(HaveOccurred())
 				Expect(tr.Status.GetCondition("Succeeded").IsTrue()).To(BeFalse())
@@ -290,3 +272,45 @@ var _ = framework.ChainsSuiteDescribe("Tekton Chains E2E tests", func() {
 
 	})
 })
+
+func printPolicyConfiguration(policy ecp.EnterpriseContractPolicySpec) {
+	sources := ""
+	for i, s := range policy.Sources {
+		if i != 0 {
+			sources += "\n"
+		}
+		if s.GitRepository != nil {
+			if s.GitRepository.Revision != nil {
+				sources += fmt.Sprintf("[%d] repository: '%s', revision: '%s'", i, s.GitRepository.Repository, *s.GitRepository.Revision)
+			} else {
+				sources += fmt.Sprintf("[%d] repository: '%s'", i, s.GitRepository.Repository)
+			}
+		}
+	}
+	exceptions := "[]"
+	if policy.Exceptions != nil {
+		exceptions = fmt.Sprintf("%v", policy.Exceptions.NonBlocking)
+	}
+	GinkgoWriter.Printf("Configured sources: %s\nand non-blocking policies: %v\n", sources, exceptions)
+}
+
+func printTaskRunStatus(tr *v1beta1.PipelineRunTaskRunStatus, namespace string, sc common.SuiteController) {
+	if tr.Status == nil {
+		GinkgoWriter.Printf("*** TaskRun status: nil")
+		return
+	}
+
+	if y, err := yaml.Marshal(tr.Status); err == nil {
+		GinkgoWriter.Printf("*** TaskRun status:\n%s\n", string(y))
+	} else {
+		GinkgoWriter.Printf("*** Unable to serialize TaskRunStatus to YAML: %#v; error: %s", tr.Status, err)
+	}
+
+	for _, s := range tr.Status.TaskRunStatusFields.Steps {
+		if logs, err := sc.GetContainerLogs(tr.Status.PodName, s.ContainerName, namespace); err == nil {
+			GinkgoWriter.Printf("*** Logs from pod '%s', container '%s':\n----- START -----%s----- END -----\n", tr.Status.PodName, s.ContainerName, logs)
+		} else {
+			GinkgoWriter.Printf("*** Can't fetch logs from pod '%s', container '%s': %s", tr.Status.PodName, s.ContainerName, err)
+		}
+	}
+}

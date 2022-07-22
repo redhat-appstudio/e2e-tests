@@ -61,55 +61,6 @@ func (g BuildahDemo) Generate() *v1beta1.PipelineRun {
 	}
 }
 
-type CosignVerify struct {
-	PipelineRunName string
-	Image           string
-	Bundle          string
-}
-
-// image is full url to the image, e.g.:
-// image-registry.openshift-image-registry.svc:5000/tekton-chains/buildah-demo@sha256:abc...
-func (t CosignVerify) Generate() *v1beta1.PipelineRun {
-	imageInfo := strings.Split(t.Image, "/")
-	namespace := imageInfo[1]
-
-	return &v1beta1.PipelineRun{
-		ObjectMeta: metav1.ObjectMeta{
-			GenerateName: fmt.Sprintf("%s-", t.PipelineRunName),
-			Namespace:    namespace,
-		},
-		Spec: v1beta1.PipelineRunSpec{
-			Params: []v1beta1.Param{
-				{
-					Name: "IMAGE_REF",
-					Value: v1beta1.ArrayOrString{
-						Type:      v1beta1.ParamTypeString,
-						StringVal: t.Image,
-					},
-				},
-				{
-					Name: "PUBLIC_KEY",
-					Value: v1beta1.ArrayOrString{
-						Type:      v1beta1.ParamTypeString,
-						StringVal: "k8s://tekton-chains/signing-secrets",
-					},
-				},
-				{
-					Name: "PIPELINERUN_NAME",
-					Value: v1beta1.ArrayOrString{
-						Type:      v1beta1.ParamTypeString,
-						StringVal: "",
-					},
-				},
-			},
-			PipelineRef: &v1beta1.PipelineRef{
-				Name:   "e2e-ec",
-				Bundle: t.Bundle,
-			},
-		},
-	}
-}
-
 type VerifyEnterpriseContract struct {
 	PipelineRunName string
 	ImageRef        string
