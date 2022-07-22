@@ -7,7 +7,9 @@ tests:
         gitSourceUrl: "https://github.com/redhat-appstudio-qe/simple-nodejs-app"
         devfileSource: "https://raw.githubusercontent.com/redhat-appstudio-qe/simple-nodejs-app/main/devfiles/devfile.yaml"
         language: "nodejs"
-        healthz: "/users"
+        healthz: "/"
+        spec:
+          replicas: 2
   - name: "RHDP-476: create an application with DotNet component"
     applicationName: "e2e-dotnet"
     components:
@@ -16,6 +18,7 @@ tests:
         gitSourceUrl: "https://github.com/redhat-appstudio-qe/devfile-sample-dotnet60-basic"
         language: "dotNet"
         healthz: "/"
+        spec:
   - name: "RHDP-478: create an application with multiple components"
     applicationName: "e2e-multiple-components"
     components:
@@ -24,11 +27,13 @@ tests:
         gitSourceUrl: "https://github.com/redhat-appstudio-qe/devfile-sample-python-basic"
         language: "python"
         healthz: "/"
+        spec:
       - name: "component-golang"
         type: "public"
         gitSourceUrl: "https://github.com/redhat-appstudio-qe/devfile-sample-go-basic"
         language: "go"
         healthz: "/"
+        spec:
   - name: "RHDP-467: create an application with a component from quay.io image"
     applicationName: "e2e-quayio"
     components:

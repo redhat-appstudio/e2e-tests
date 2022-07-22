@@ -25,6 +25,8 @@ tests:
         devfileSource: "https://raw.githubusercontent.com/jduimovich/appstudio-e2e-demos/main/demos/single-nodejs-app/devfiles/devfile.yaml"
         language: "nodejs"
         healthz: "/"
+        spec:
+          replicas: 2
 ```
 
 To run the e2e-demos with a custom yaml use: `./bin/e2e-appstudio --ginkgo.focus="e2e-demos-suite" -config-suites=$PATH_TO_YOUR_CONFIG_YAML`

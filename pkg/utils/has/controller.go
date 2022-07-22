@@ -91,6 +91,17 @@ func (h *SuiteController) GetHasComponent(name, namespace string) (*appservice.C
 	return &component, nil
 }
 
+// ScaleDeploymentReplicas scales the replicas of a given deployment
+func (h *SuiteController) ScaleComponentReplicas(component *appservice.Component, replicas int) (*appservice.Component, error) {
+	component.Spec.Replicas = replicas
+
+	err := h.KubeRest().Update(context.TODO(), component, &rclient.UpdateOptions{})
+	if err != nil {
+		return &appservice.Component{}, err
+	}
+	return component, nil
+}
+
 // DeleteHasComponent delete an has component from a given name and namespace
 func (h *SuiteController) DeleteHasComponent(name string, namespace string) error {
 	component := appservice.Component{
