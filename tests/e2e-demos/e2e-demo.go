@@ -3,8 +3,6 @@ package e2e
 import (
 	"context"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -15,18 +13,33 @@ import (
 	"github.com/redhat-appstudio/e2e-tests/pkg/constants"
 	"github.com/redhat-appstudio/e2e-tests/pkg/framework"
 	"github.com/redhat-appstudio/e2e-tests/pkg/utils"
-	"github.com/redhat-appstudio/e2e-tests/tests/e2e-demos/config"
+	e2eConfig "github.com/redhat-appstudio/e2e-tests/tests/e2e-demos/config"
 	"github.com/spf13/viper"
-	"gopkg.in/yaml.v2"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
 )
 
-var AppStudioE2EApplicationsNamespace = utils.GetEnv(constants.E2E_APPLICATIONS_NAMESPACE_ENV, "appstudio-e2e-test")
+const (
+	// Application Service controller is deployed the namespace: https://github.com/redhat-appstudio/infra-deployments/blob/main/argo-cd-apps/base/has.yaml#L14
+	RedHatAppStudioApplicationNamespace string = "application-service"
+
+	// See more info: https://github.com/redhat-appstudio/application-service#creating-a-github-secret-for-has
+	ApplicationServiceGHTokenSecrName string = "has-github-token" // #nosec
+
+	// Name for the GitOps Deployment resource
+	GitOpsDeploymentName string = "gitops-deployment-e2e"
+
+	// GitOps repository branch to use
+	GitOpsRepositoryRevision string = "main"
+)
+
+var AppStudioE2EApplicationsNamespace = utils.GetEnv(constants.E2E_APPLICATIONS_NAMESPACE_ENV, "appstudio-e2e-demo")
 
 var _ = framework.E2ESuiteDescribe(func() {
 	defer GinkgoRecover()
+	var outputContainerImage = ""
 
 	// Initialize the application struct
 	application := &appservice.Application{}
@@ -39,7 +52,7 @@ var _ = framework.E2ESuiteDescribe(func() {
 	// Initialize the tests controllers
 	fw, err := framework.NewFramework()
 	Expect(err).NotTo(HaveOccurred())
-	configTest, err := LoadTestGeneratorConfig(configTestFile)
+	configTest, err := e2eConfig.LoadTestGeneratorConfig(configTestFile)
 	Expect(err).NotTo(HaveOccurred())
 
 	BeforeAll(func() {
@@ -59,12 +72,18 @@ var _ = framework.E2ESuiteDescribe(func() {
 	AfterAll(func() {
 		Expect(fw.HasController.DeleteAllComponentsInASpecificNamespace(AppStudioE2EApplicationsNamespace)).To(Succeed())
 		Expect(fw.HasController.DeleteAllApplicationsInASpecificNamespace(AppStudioE2EApplicationsNamespace)).To(Succeed())
+		Expect(fw.SPIController.DeleteAllBindingTokensInASpecificNamespace(AppStudioE2EApplicationsNamespace)).To(Succeed())
+		Expect(fw.SPIController.DeleteAllAccessTokenDataInASpecificNamespace(AppStudioE2EApplicationsNamespace)).To(Succeed())
+		Expect(fw.SPIController.DeleteAllAccessTokensInASpecificNamespace(AppStudioE2EApplicationsNamespace)).To(Succeed())
+		Expect(fw.GitOpsController.DeleteAllGitOpsDeploymentInASpecificNamespace(AppStudioE2EApplicationsNamespace)).To(Succeed())
 	})
 
 	for _, appTest := range configTest.Tests {
 		appTest := appTest
 
 		When(appTest.Name, func() {
+			defer GinkgoRecover()
+
 			// Create an application in a specific namespace
 			It("application is created", func() {
 				createdApplication, err := fw.HasController.CreateHasApplication(appTest.ApplicationName, AppStudioE2EApplicationsNamespace)
@@ -91,33 +110,49 @@ var _ = framework.E2ESuiteDescribe(func() {
 			})
 
 			for _, componentTest := range appTest.Components {
+				var oauthSecretName = ""
+
 				componentTest := componentTest
 				var containerIMG = fmt.Sprintf("quay.io/%s/test-images:%s", utils.GetQuayIOOrganization(), strings.Replace(uuid.New().String(), "-", "", -1))
-				// Fail all private tests
+
+				// TODO: In the future when HAS support creating private applications should push the containers from private repos to a private quay.io repo
 				if componentTest.Type == "private" {
-					defer GinkgoRecover()
-					Fail("Component creation from private repo is not supported. Jira issue: https://issues.redhat.com/browse/SVPI-135")
+					It("Inject manually SPI token", func() {
+						// Inject spi tokens to work with private components
+						if componentTest.ContainerSource != "" {
+							// More info about manual token upload for quay.io here: https://github.com/redhat-appstudio/service-provider-integration-operator/pull/115
+							oauthCredentials := `{"access_token":"` + utils.GetEnv(constants.QUAY_OAUTH_TOKEN_ENV, "") + `", "username":"` + utils.GetEnv(constants.QUAY_OAUTH_USER_ENV, "") + `"}`
+
+							oauthSecretName = fw.SPIController.InjectManualSPIToken(AppStudioE2EApplicationsNamespace, componentTest.ContainerSource, oauthCredentials, v1.SecretTypeDockerConfigJson)
+						} else if componentTest.GitSourceUrl != "" {
+							// More info about manual token upload for github.com
+							oauthCredentials := `{"access_token":"` + utils.GetEnv(constants.GITHUB_TOKEN_ENV, "") + `"}`
+
+							oauthSecretName = fw.SPIController.InjectManualSPIToken(AppStudioE2EApplicationsNamespace, componentTest.GitSourceUrl, oauthCredentials, v1.SecretTypeBasicAuth)
+						}
+					})
 				}
 
 				// Components for now can be imported from gitUrl, container image or a devfile
 				if componentTest.ContainerSource != "" {
-					It(fmt.Sprintf("create component %s from container source", componentTest.Name), func() {
-						var outputContainerImage = ""
-						_, err := fw.HasController.CreateComponent(application.Name, componentTest.Name, AppStudioE2EApplicationsNamespace, "", componentTest.ContainerSource, outputContainerImage, "")
+					It(fmt.Sprintf("create component %s from %s container source", componentTest.Name, componentTest.Type), func() {
+						_, err := fw.HasController.CreateComponent(application.Name, componentTest.Name, AppStudioE2EApplicationsNamespace, "", componentTest.ContainerSource, outputContainerImage, oauthSecretName)
 						Expect(err).NotTo(HaveOccurred())
 					})
 
+					// User can define a git url and a devfile at the same time if multiple devfile exists into a repo
 				} else if componentTest.GitSourceUrl != "" && componentTest.Devfilesource != "" {
-					It(fmt.Sprintf("create component %s from git source %s and devfile %s", componentTest.Name, componentTest.GitSourceUrl, componentTest.Devfilesource), func() {
+					It(fmt.Sprintf("create component %s from %s git source %s and devfile %s", componentTest.Name, componentTest.Type, componentTest.GitSourceUrl, componentTest.Devfilesource), func() {
 						component, err = fw.HasController.CreateComponentFromDevfile(application.Name, componentTest.Name, AppStudioE2EApplicationsNamespace,
-							componentTest.GitSourceUrl, componentTest.Devfilesource, "", containerIMG, "")
+							componentTest.GitSourceUrl, componentTest.Devfilesource, "", containerIMG, oauthSecretName)
 						Expect(err).NotTo(HaveOccurred())
 					})
 
+					// If component have only a git source application-service will start to fetch the devfile from the git root directory
 				} else if componentTest.GitSourceUrl != "" {
-					It(fmt.Sprintf("create component %s from git source %s", componentTest.Name, componentTest.GitSourceUrl), func() {
+					It(fmt.Sprintf("create component %s from %s git source %s", componentTest.Name, componentTest.Type, componentTest.GitSourceUrl), func() {
 						component, err = fw.HasController.CreateComponent(application.Name, componentTest.Name, AppStudioE2EApplicationsNamespace,
-							componentTest.GitSourceUrl, "", containerIMG, "")
+							componentTest.GitSourceUrl, "", containerIMG, oauthSecretName)
 						Expect(err).NotTo(HaveOccurred())
 					})
 
@@ -126,7 +161,8 @@ var _ = framework.E2ESuiteDescribe(func() {
 					Fail("Please Provide a valid test configuration")
 				}
 
-				It(fmt.Sprintf("wait component %s pipeline to be finished", componentTest.Name), func() {
+				// Start to watch the pipeline until is finished
+				It(fmt.Sprintf("wait %s component %s pipeline to be finished", componentTest.Type, componentTest.Name), func() {
 					if componentTest.ContainerSource != "" {
 						Skip(fmt.Sprintf("component %s was imported from quay.io/docker.io source. Skiping pipelinerun check.", componentTest.Name))
 					}
@@ -134,7 +170,7 @@ var _ = framework.E2ESuiteDescribe(func() {
 				})
 
 				// Deploy the component using gitops and check for the health
-				It(fmt.Sprintf("deploy component %s using gitops", componentTest.Name), func() {
+				It(fmt.Sprintf("deploy %s component %s using gitops", componentTest.Type, componentTest.Name), func() {
 					gitOpsRepository := utils.ObtainGitOpsRepositoryUrl(application.Status.Devfile)
 					gitOpsRepositoryPath := fmt.Sprintf("components/%s/base", componentTest.Name)
 
@@ -171,21 +207,3 @@ var _ = framework.E2ESuiteDescribe(func() {
 		})
 	}
 })
-
-func LoadTestGeneratorConfig(configPath string) (config.WorkflowSpec, error) {
-	c := config.WorkflowSpec{}
-	// Open config file
-	file, err := os.Open(filepath.Clean(configPath))
-	if err != nil {
-		return c, err
-	}
-
-	// Init new YAML decode
-	d := yaml.NewDecoder(file)
-
-	// Start YAML decoding from file
-	if err := d.Decode(&c); err != nil {
-		return c, err
-	}
-	return c, nil
-}

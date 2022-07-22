@@ -21,6 +21,9 @@ serviceProviders:
   - type: GitHub
     clientId: $SPI_GITHUB_CLIENT_ID
     clientSecret: $SPI_GITHUB_CLIENT_SECRET
+  - type: Quay
+    clientId: $SPI_GITHUB_CLIENT_ID
+    clientSecret: $SPI_GITHUB_CLIENT_SECRET
 baseUrl: https://spi-oauth-route-spi-system.$( oc get ingresses.config/cluster -o jsonpath={.spec.domain})
 EOF
 )

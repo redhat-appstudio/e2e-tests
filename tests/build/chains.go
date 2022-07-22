@@ -287,6 +287,5 @@ var _ = framework.ChainsSuiteDescribe("Tekton Chains E2E tests", func() {
 				// Because the task fails, no results are created
 			})
 		})
-
 	})
 })

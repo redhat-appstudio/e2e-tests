@@ -8,8 +8,14 @@ const (
 	// The github organization is used to create the gitops repositories in Red Hat Appstudio.
 	GITHUB_E2E_ORGANIZATION_ENV string = "GITHUB_E2E_ORGANIZATION" // #nosec
 
-	// The github organization is used to create the gitops repositories in Red Hat Appstudio.
+	// The quay organization is used to push container images using Red Hat Appstudio pipelines.
 	QUAY_E2E_ORGANIZATION_ENV string = "QUAY_E2E_ORGANIZATION" // #nosec
+
+	// The quay.io username to perform container builds and puush
+	QUAY_OAUTH_USER_ENV string = "QUAY_OAUTH_USER" // #nosec
+
+	// The quay.io token to perform container builds and puush. The token must be corelated with the QUAY_OAUTH_USER environment
+	QUAY_OAUTH_TOKEN_ENV string = "QUAY_OAUTH_TOKEN" // #nosec
 
 	// The private devfile sample git repository to use in certain HAS e2e tests
 	PRIVATE_DEVFILE_SAMPLE string = "PRIVATE_DEVFILE_SAMPLE" // #nosec
@@ -36,20 +42,17 @@ const (
 	BuildPipelinesConfigMapName             = "build-pipelines-defaults"
 	BuildPipelinesConfigMapDefaultNamespace = "build-templates"
 
+	HostOperatorNamespace   string = "toolchain-host-operator"
+	MemberOperatorNamespace string = "toolchain-member-operator"
 
-	HostOperatorNamespace  string = "toolchain-host-operator"
-	MemberOperatorNamespace  string = "toolchain-member-operator"
-
-	HostOperatorWorkload string = "host-operator-controller-manager"
+	HostOperatorWorkload   string = "host-operator-controller-manager"
 	MemberOperatorWorkload string = "member-operator-controller-manager"
 
 	OLMOperatorNamespace string = "openshift-operator-lifecycle-manager"
-	OLMOperatorWorkload string = "olm-operator"
+	OLMOperatorWorkload  string = "olm-operator"
 
 	OSAPIServerNamespace string = "openshift-apiserver"
-	OSAPIServerWorkload string = "apiserver"
+	OSAPIServerWorkload  string = "apiserver"
 
 	RegistryAuthSecretName = "redhat-appstudio-registry-pull-secret"
-
 )
-

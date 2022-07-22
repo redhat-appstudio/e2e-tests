@@ -62,7 +62,8 @@ The following environments are used to launch the Red Hat AppStudio installation
 | `QUAY_E2E_ORGANIZATION` | no | Quay organization where to push components containers | `redhat-appstudio-qe` |
 | `E2E_APPLICATIONS_NAMESPACE` | no | Name of the namespace used for running HAS E2E tests | `appstudio-e2e-test` |
 | `PRIVATE_DEVFILE_SAMPLE` | no | The name of the private git repository used in HAS E2E tests. Your GITHUB_TOKEN should be able to read from it. | `https://github.com/redhat-appstudio-qe/private-quarkus-devfile-sample` |
-
+| `QUAY_OAUTH_USER` | no | A quay.io username used to push/build containers. See e2e-demo [instructions](../tests/e2e-demos/Readme.md)  | ''  |
+| `QUAY_OAUTH_TOKEN` | no | A quay.io token used to push/build containers. Note: the token and username must be a robot account with access to your repository. See e2e-demo [instructions](../tests/e2e-demos/Readme.md) | '' |
 
 ### Setting up the required tokens
 

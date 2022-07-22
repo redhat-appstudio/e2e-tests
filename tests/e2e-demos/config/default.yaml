@@ -1,4 +1,4 @@
-tests: 
+tests:
   - name: "RHDP-466: create an application with nodejs component"
     applicationName: "e2e-nodejs"
     components:
@@ -16,7 +16,7 @@ tests:
         gitSourceUrl: "https://github.com/redhat-appstudio-qe/devfile-sample-dotnet60-basic"
         language: "dotNet"
         healthz: "/"
-  - name: "RHDP-478: create an application with multiple components"
+  - name: "RHDP-478: create an application with multiple components from private and public repositories"
     applicationName: "e2e-multiple-components"
     components:
       - name: "component-python"
@@ -24,16 +24,21 @@ tests:
         gitSourceUrl: "https://github.com/redhat-appstudio-qe/devfile-sample-python-basic"
         language: "python"
         healthz: "/"
-      - name: "component-golang"
-        type: "public"
-        gitSourceUrl: "https://github.com/redhat-appstudio-qe/devfile-sample-go-basic"
-        language: "go"
-        healthz: "/"
-  - name: "RHDP-467: create an application with a component from quay.io image"
+      - name: "private-quarkus-component"
+        type: "private"
+        gitSourceUrl: "https://github.com/redhat-appstudio-qe/private-quarkus-devfile-sample"
+        language: "quarkus"
+        healthz: "/hello-resteasy"
+  - name: "RHDP-467: create an application with a component from private and public quay.io images"
     applicationName: "e2e-quayio"
     components:
       - name: "quay-public-component"
         type: "public"
-        containerSource: "quay.io/redhat-appstudio-qe/test-images:b545caa0de0c4e3ba3a5ad1ad7a1f1b6"
+        containerSource: "quay.io/redhat-appstudio-qe/test-images:quarkus"
         language: "java"
         healthz: "/hello-resteasy"
+      - name: "quay-private-component"
+        type: "private"
+        containerSource: "quay.io/redhat-appstudio-qe/private-image:go"
+        language: "go"
+        healthz: "/"

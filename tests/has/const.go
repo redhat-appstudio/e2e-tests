@@ -29,10 +29,4 @@ const (
 
 	// GitOps repository branch to use
 	GitOpsRepositoryRevision string = "main"
-
-	// The name of the SPIAccessTokenBinding resource that the HAS e2e tests will create
-	SPIAccessTokenBindingName string = "has-private-git-repo-binding" // #nosec
-
-	// The name of the secret to be created by the SPIAccessTokenBinding resource
-	SPIAccessTokenSecretName string = "has-private-git-repo-secret" // #nosec
 )

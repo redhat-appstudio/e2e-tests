@@ -5,6 +5,7 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"os/exec"
 	"strings"
 
 	"github.com/onsi/gomega"
@@ -44,7 +45,6 @@ func GetEnv(key, defaultVal string) string {
 		schemaVersion: 2.1.0
 	The ObtainGitUrlFromDevfile extract from the string the git url associated with a application
 */
-
 func ObtainGitOpsRepositoryName(devfileStatus string) string {
 	appDevfile, err := devfile.ParseDevfileModel(devfileStatus)
 	if err != nil {
@@ -96,6 +96,15 @@ func IsPrivateHostname(url string) bool {
 		}
 	}
 	return false
+}
+
+func GetOpenshiftToken() (token string, err error) {
+	// Get the token for the current openshift user
+	tokenBytes, err := exec.Command("oc", "whoami", "--show-token").Output()
+	if err != nil {
+		return "", fmt.Errorf("Error obtainig oc token %s", err.Error())
+	}
+	return strings.TrimSuffix(string(tokenBytes), "\n"), nil
 }
 
 func GetFailedPipelineRunDetails(pipelineRun v1beta1.PipelineRun) *FailedPipelineRunDetails {

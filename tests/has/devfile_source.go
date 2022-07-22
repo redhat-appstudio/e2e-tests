@@ -21,7 +21,7 @@ import (
 
 var (
 	ComponentContainerImage           string = fmt.Sprintf("quay.io/%s/test-images:%s", utils.GetQuayIOOrganization(), strings.Replace(uuid.New().String(), "-", "", -1))
-	AppStudioE2EApplicationsNamespace string = utils.GetEnv(constants.E2E_APPLICATIONS_NAMESPACE_ENV, "appstudio-e2e-test")
+	AppStudioE2EApplicationsNamespace        = utils.GetEnv(constants.E2E_APPLICATIONS_NAMESPACE_ENV, "appstudio-e2e-test")
 )
 
 /*
@@ -69,7 +69,6 @@ var _ = framework.HASSuiteDescribe("devfile source", func() {
 
 			return framework.CommonController.Github.CheckIfRepositoryExist(gitOpsRepository)
 		}, 1*time.Minute, 100*time.Millisecond).Should(BeFalse(), "Has controller didn't remove Red Hat AppStudio application gitops repository")
-
 	})
 
 	It("Create Red Hat AppStudio Application", func() {
@@ -144,7 +143,7 @@ var _ = framework.HASSuiteDescribe("devfile source", func() {
 			}
 
 			return false
-		}, 5*time.Minute, 10*time.Second).Should(BeTrue(), "Component didn't get get deleted with its Application")
+		}, 10*time.Minute, 10*time.Second).Should(BeTrue(), "Component didn't get get deleted with its Application")
 		Expect(err).NotTo(HaveOccurred())
 	})
 })
