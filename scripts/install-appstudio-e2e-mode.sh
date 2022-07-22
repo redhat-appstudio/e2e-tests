@@ -53,7 +53,8 @@ function addQERemoteForkAndInstallAppstudio() {
 
 # Add a custom remote for infra-deployments repository.
 function initializeSPIVault() {
-   curl https://raw.githubusercontent.com/redhat-appstudio/e2e-tests/main/scripts/spi-e2e-setup.sh | bash -s
+   # The env var NAMESPACE is exported by openshift-ci and breaks the vault-init script. It has to be set to an empty string.
+   curl https://raw.githubusercontent.com/redhat-appstudio/e2e-tests/main/scripts/spi-e2e-setup.sh | NAMESPACE="" bash -s
 }
 
 # Secrets used by pipelines to push component containers to quay.io
