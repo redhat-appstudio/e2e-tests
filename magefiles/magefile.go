@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	requiredBinaries = []string{"jq", "kubectl", "oc", "yq", "jq", "git"}
+	requiredBinaries = []string{"jq", "kubectl", "oc", "yq", "git"}
 	artifactDir      = utils.GetEnv("ARTIFACT_DIR", ".")
 	openshiftJobSpec = &OpenshiftJobSpec{}
 	pr               = &PullRequestMetadata{}
