@@ -16,10 +16,6 @@ import (
 var _ = framework.ChainsSuiteDescribe("Tekton Chains E2E tests", func() {
 	defer g.GinkgoRecover()
 
-	// Set this to true to skip contract tests
-	var skipContract bool = false
-	var skipContractMsg string = "Temporarily disabling until the EC task definition is updated"
-
 	// Initialize the tests controllers
 	framework, err := framework.NewFramework()
 	Expect(err).NotTo(HaveOccurred())
@@ -146,9 +142,6 @@ var _ = framework.ChainsSuiteDescribe("Tekton Chains E2E tests", func() {
 			})
 
 			g.It("succeeds when policy is met", func() {
-				if skipContract {
-					g.Skip(skipContractMsg)
-				}
 				// Setup a policy config to ignore the policy check for tests
 				policies := `{"non_blocking_checks":["not_useful", "test"]}`
 				g.GinkgoWriter.Printf("Set the non-blocking checks to policies: %s\n", policies)
@@ -177,9 +170,6 @@ var _ = framework.ChainsSuiteDescribe("Tekton Chains E2E tests", func() {
 			})
 
 			g.It("does not pass when tests are not satisfied on non-strict mode", func() {
-				if skipContract {
-					g.Skip(skipContractMsg)
-				}
 				generator.StrictPolicy = "0"
 				pr, err := kubeController.RunPipeline(generator, pipelineRunTimeout)
 				Expect(err).NotTo(HaveOccurred())
@@ -213,9 +203,6 @@ var _ = framework.ChainsSuiteDescribe("Tekton Chains E2E tests", func() {
 			})
 
 			g.It("fails when tests are not satisfied on strict mode", func() {
-				if skipContract {
-					g.Skip(skipContractMsg)
-				}
 				pr, err := kubeController.RunPipeline(generator, pipelineRunTimeout)
 				Expect(err).NotTo(HaveOccurred())
 				err = kubeController.WatchPipelineRun(pr.Name, pipelineRunTimeout)
@@ -232,9 +219,6 @@ var _ = framework.ChainsSuiteDescribe("Tekton Chains E2E tests", func() {
 			})
 
 			g.It("fails when unexpected signature is used", func() {
-				if skipContract {
-					g.Skip(skipContractMsg)
-				}
 				secretName := fmt.Sprintf("dummy-public-key-%s", util.GenerateRandomString(10))
 				publicKey := []byte("-----BEGIN PUBLIC KEY-----\n" +
 					"MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAENZxkE/d0fKvJ51dXHQmxXaRMTtVz\n" +
