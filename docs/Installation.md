@@ -32,25 +32,16 @@ Before starting the deployment steps of appstudio in e2e mode in Openshift CI yo
 3. Install Red Hat App Studio in e2e mode. The e2e framework by default will use the `redhat-appstudio-qe` github organization by default. If you want to change the github org you should define `GITHUB_E2E_ORGANIZATION` environment with your custom github organization
 
    ```bash
-      # In Openshift CI there are some example about how to use the installation script. See infra-deployments script https://github.com/redhat-appstudio/application-service/blob/main/.ci/oci-e2e-has.sh#L59
-      $ROOT_DIR/scripts/install-appstudio-e2e-mode.sh install
+   make local/cluster/prepare
    ```
 
-4. Compile the e2e tests
+4. Run the e2e tests
 
    ```bash
-    make build
-   ```
-
-5. Run the e2e tests
-
-   ```bash
-    `$ROOT_DIR/bin/e2e-appstudio`
+   make local/test/e2e
    ```
 
 Where are:
-
-- `install` - Flag to indicate the installation. If the flag will not be present you can `source` the script and use the bash functions.
 
 The following environments are used to launch the Red Hat AppStudio installation in e2e mode and the tests execution:
 
@@ -88,8 +79,4 @@ potentially could exists in the developer's fork of the e2e repository
 
 For example, if a developer with GH account `cooljohn` opens a PR (for application-service repo) from a branch `new-feature`, then the logic checks if there is a branch `new-feature` also in the `cooljohn/e2e-tests` fork and if exists will start to install the e2e framework from those branch
 
-To install App Studio E2E framework in openshift-ci and use the pairing feature it is necessary to perform:
-
-```bash
-   $ROOT_DIR/scripts/e2e-openshift-ci.sh
-```
+Pairing PRs is handled automatically by running `make ci/test/e2e`
