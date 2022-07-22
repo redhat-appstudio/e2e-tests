@@ -116,29 +116,48 @@ func TestFindingCosignResults(t *testing.T) {
 
 }
 
-func TestCoreServiceBundleName(t *testing.T) {
-	assert.Equal(t, "quay.io/redhat-appstudio/hacbs-core-service-templates-bundle:latest", coreServiceBundleName("quay.io/redhat-appstudio/build-templates-bundle:861e28f4eb2380fd1531ee30a9e74fb6ce496b9f"))
-}
-
 func TestNewBundles(t *testing.T) {
-	buildTemplatesConfigMap := corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "build-pipelines-defaults",
-			Namespace: "build-templates",
+	cases := []struct {
+		name                string
+		bundle              string
+		expectedBuildBundle string
+		expectedHACBSBundle string
+	}{
+		{
+			name:                "non PR builds",
+			bundle:              "quay.io/redhat-appstudio/build-templates-bundle:861e28f4eb2380fd1531ee30a9e74fb6ce496b9f",
+			expectedBuildBundle: "quay.io/redhat-appstudio/build-templates-bundle:861e28f4eb2380fd1531ee30a9e74fb6ce496b9f",
+			expectedHACBSBundle: "quay.io/redhat-appstudio/hacbs-templates-bundle:861e28f4eb2380fd1531ee30a9e74fb6ce496b9f",
 		},
-		Data: map[string]string{
-			"default_build_bundle": "quay.io/redhat-appstudio/build-templates-bundle:861e28f4eb2380fd1531ee30a9e74fb6ce496b9f",
+		{
+			name:                "PR builds",
+			bundle:              "quay.io/redhat-appstudio/pull-request-builds:base-671f833e488d2b38b4e14d8248d58eb1b58ebdac",
+			expectedBuildBundle: "quay.io/redhat-appstudio/pull-request-builds:base-671f833e488d2b38b4e14d8248d58eb1b58ebdac",
+			expectedHACBSBundle: "quay.io/redhat-appstudio/pull-request-builds:hacbs-671f833e488d2b38b4e14d8248d58eb1b58ebdac",
 		},
 	}
 
-	client := kfake.NewSimpleClientset(&buildTemplatesConfigMap)
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			buildTemplatesConfigMap := corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "build-pipelines-defaults",
+					Namespace: "build-templates",
+				},
+				Data: map[string]string{
+					"default_build_bundle": c.bundle,
+				},
+			}
 
-	bundles, error := newBundles(client)
-	assert.Nil(t, error)
+			client := kfake.NewSimpleClientset(&buildTemplatesConfigMap)
 
-	assert.Equal(t, &Bundles{
-		BuildTemplatesBundle:            "quay.io/redhat-appstudio/build-templates-bundle:861e28f4eb2380fd1531ee30a9e74fb6ce496b9f",
-		HACBSTemplatesBundle:            "quay.io/redhat-appstudio/hacbs-templates-bundle:861e28f4eb2380fd1531ee30a9e74fb6ce496b9f",
-		HACBSCoreServiceTemplatesBundle: "quay.io/redhat-appstudio/hacbs-core-service-templates-bundle:latest",
-	}, bundles)
+			bundles, error := newBundles(client)
+			assert.Nil(t, error)
+
+			assert.Equal(t, &Bundles{
+				BuildTemplatesBundle: c.expectedBuildBundle,
+				HACBSTemplatesBundle: c.expectedHACBSBundle,
+			}, bundles)
+		})
+	}
 }
