@@ -21,6 +21,7 @@ import (
 	"github.com/redhat-appstudio/e2e-tests/pkg/constants"
 	"github.com/redhat-appstudio/e2e-tests/pkg/sandbox"
 	"github.com/redhat-appstudio/e2e-tests/pkg/utils"
+	"k8s.io/klog/v2"
 )
 
 type ControllerHub struct {
@@ -61,7 +62,14 @@ func NewFrameworkWithTimeout(userName string, timeout time.Duration, options ...
 	}
 
 	if isStage {
+		// Debug
+		klog.Infof("** options[0].ToolchainApiUrl before - %s; ", options[0].ToolchainApiUrl)
+
 		options[0].ToolchainApiUrl = fmt.Sprintf("%s/workspaces/%s", options[0].ToolchainApiUrl, userName)
+
+		// Debug
+		klog.Infof("** options[0].ToolchainApiUrl after - %s; ", options[0].ToolchainApiUrl)
+
 		supplyopts = options[0]
 	}
 	// https://issues.redhat.com/browse/CRT-1670

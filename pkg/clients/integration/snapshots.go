@@ -15,6 +15,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -92,8 +93,13 @@ func (i *IntegrationController) GetSnapshot(snapshotName, pipelineRunName, compo
 	}
 	err := i.KubeRest().List(ctx, snapshots, opts...)
 	if err != nil {
-		return nil, fmt.Errorf("error when listing Snapshots in '%s' namespace", namespace)
+		return nil, fmt.Errorf("error when listing Snapshots in '%s' namespace: %v", namespace, err)
 	}
+
+	if snapshots.Items == nil || len(snapshots.Items) == 0 {
+		return nil, fmt.Errorf("error when fetching Snapshots in '%s' namespace: The Items field is either uninitialized or contains zero elements", namespace)
+	}
+
 	for _, snapshot := range snapshots.Items {
 		if snapshot.Name == snapshotName {
 			return &snapshot, nil
@@ -102,6 +108,8 @@ func (i *IntegrationController) GetSnapshot(snapshotName, pipelineRunName, compo
 		if len(pipelineRunName) > 0 && snapshot.Labels["appstudio.openshift.io/build-pipelinerun"] == pipelineRunName {
 			return &snapshot, nil
 
+		} else {
+			klog.Infof("build-pipelinerun - %s, pipelineRunName - %s", snapshot.Labels["appstudio.openshift.io/build-pipelinerun"], pipelineRunName)
 		}
 		// find snapshot by component name
 		if len(componentName) > 0 && snapshot.Labels["appstudio.openshift.io/component"] == componentName {

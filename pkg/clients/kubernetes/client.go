@@ -37,6 +37,7 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/klog"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 )
@@ -128,12 +129,21 @@ func NewDevSandboxProxyClient(userName string, isStage bool, options utils.Optio
 	var sandboxProxyClient *CustomClient
 
 	if isStage {
-		sandboxController, err := sandbox.NewDevSandboxStageController()
+		// Debug
+		klog.Infof("** userName - %s; options.ToolchainApiUrl - %s; options.KeycloakUrl - %s; options.OfflineToken - %s ", userName, options.ToolchainApiUrl, options.KeycloakUrl, options.OfflineToken)
+
+		sandboxController, err = sandbox.NewDevSandboxStageController()
 		if err != nil {
+			// Debug
+			klog.Infof("** Failure in NewDevSandboxStageController")
+
 			return nil, err
 		}
 		proxyAuthInfo, err = sandboxController.ReconcileUserCreationStage(userName, options.ToolchainApiUrl, options.KeycloakUrl, options.OfflineToken)
 		if err != nil {
+			// Debug
+			klog.Infof("** Failure in ReconcileUserCreationStage")
+
 			return nil, err
 		}
 
@@ -156,6 +166,10 @@ func NewDevSandboxProxyClient(userName string, isStage bool, options utils.Optio
 
 	sandboxProxyClient, err = CreateAPIProxyClient(proxyAuthInfo.UserToken, proxyAuthInfo.ProxyUrl)
 	if err != nil {
+		// Debug
+		klog.Infof("** Failure in CreateAPIProxyClient")
+		klog.Infof("** proxyAuthInfo.UserToken - %s; proxyAuthInfo.ProxyUrl - %s", proxyAuthInfo.UserToken, proxyAuthInfo.ProxyUrl)
+
 		return nil, err
 	}
 

@@ -25,6 +25,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
+	"k8s.io/klog/v2"
 	crclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -164,15 +165,39 @@ func (lrt LoggingRoundTripper) RoundTrip(req *http.Request) (res *http.Response,
 // ReconcileUserCreation create a user in sandbox and return a valid kubeconfig for user to be used for the tests
 func (s *SandboxController) ReconcileUserCreationStage(userName, toolchainApiUrl, keycloakUrl, offlineToken string) (*SandboxUserAuthInfo, error) {
 	wd, err := os.Getwd()
+
+	// Debug
+	klog.Infof("** In ReconcileUserCreationStage - step1")
+
 	if err != nil {
+		// Debug
+		klog.Infof("** In ReconcileUserCreationStage - os.Getwd() error")
+
 		return nil, err
+
 	}
 	kubeconfigPath := utils.GetEnv(constants.USER_KUBE_CONFIG_PATH_ENV, fmt.Sprintf("%s/tmp/%s.kubeconfig", wd, userName))
 
+	// Debug
+	klog.Infof("** In ReconcileUserCreationStage - step2")
+	klog.Infof("** In ReconcileUserCreationStage - kubeconfigPath = %s; constants.USER_KUBE_CONFIG_PATH_ENV = %s; wd = %s; userName = %s \n", kubeconfigPath, constants.USER_KUBE_CONFIG_PATH_ENV, wd, userName)
+
 	userToken, err := s.GetKeycloakTokenStage(userName, keycloakUrl, offlineToken)
+
+	klog.Infof("** In ReconcileUserCreationStage - step3")
+	klog.Infof("** In ReconcileUserCreationStage - userToken = %s; userName = %s; keycloakUrl = %s; offlineToken = %s\n", userToken, userName, keycloakUrl, offlineToken)
+
 	if err != nil {
+		// Debug
+		klog.Infof("** In ReconcileUserCreationStage - GetKeycloakTokenStage error")
+
 		return nil, err
 	}
+
+	// Debug
+	klog.Infof("** In ReconcileUserCreationStage - step4")
+	klog.Infof("** In ReconcileUserCreationStage - toolchainApiUrl = %s; userName = %s; kubeconfigPath = %s; userToken = %s \n", toolchainApiUrl, userName, kubeconfigPath, userToken)
+	klog.Infof("** In ReconcileUserCreationStage - s.GetKubeconfigPathForSpecificUser = %s \n")
 
 	return s.GetKubeconfigPathForSpecificUser(true, toolchainApiUrl, userName, kubeconfigPath, userToken)
 }

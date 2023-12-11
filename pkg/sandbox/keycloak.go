@@ -33,7 +33,15 @@ type KeycloakAuth struct {
 // Make Request
 func (k *SandboxController) MakeRequestKeyCloak(req *http.Request, userName string) (keycloakAuth *KeycloakAuth, err error) {
 
+	klog.Infof("** In MakeRequestKeyCloak - step1")
+	klog.Infof("** req = [%+v]; userName = %s", req, userName)
+	klog.Infof("** SandboxController = [%+v]", k)
+
 	resp, err := k.HttpClient.Do(req)
+
+	klog.Infof("** In MakeRequestKeyCloak - step2")
+	klog.Infof("** req = [%+v]; resp = [%+v]", req, resp)
+
 	if err != nil || resp.StatusCode != 200 {
 		var statusCode string
 		if resp == nil {
@@ -53,14 +61,24 @@ func (k *SandboxController) MakeRequestKeyCloak(req *http.Request, userName stri
 // Get Stage KeyCloak Token
 func (k *SandboxController) GetKeycloakTokenStage(userName, tokenURL, refreshToken string) (keycloakAuth *KeycloakAuth, err error) {
 
+	// Debug
+	klog.Infof("** In GetKeycloakTokenStage - step1")
+	klog.Infof("** userName = %s; tokenURL = %s; refreshToken = %s", userName, tokenURL, refreshToken)
+
 	// Prepare the form data
 	formData := url.Values{}
 	formData.Set("grant_type", "refresh_token")
 	formData.Set("client_id", "cloud-services")
 	formData.Set("refresh_token", refreshToken)
 
+	klog.Infof("** In GetKeycloakTokenStage - step2")
+	klog.Infof("** http.NewRequest - tokenURL = %s; formData.Encode() = %v", tokenURL, formData.Encode())
+
 	req, err := http.NewRequest("POST", tokenURL, strings.NewReader(formData.Encode()))
 	if err != nil {
+		// Debug
+		klog.Infof("** In GetKeycloakTokenStage - http.NewRequest error")
+
 		fmt.Println("Failed to create Access Token request:", err)
 		return nil, err
 	}
@@ -68,6 +86,9 @@ func (k *SandboxController) GetKeycloakTokenStage(userName, tokenURL, refreshTok
 	// Set the headers
 	req.Header.Add("Accept", "application/json")
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+
+	klog.Infof("** In GetKeycloakTokenStage - step3")
+	klog.Infof("** MakeRequestKeyCloak - req = %+v; userName = %s", req, userName)
 
 	return k.MakeRequestKeyCloak(req, userName)
 }

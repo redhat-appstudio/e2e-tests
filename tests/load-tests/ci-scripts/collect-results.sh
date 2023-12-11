@@ -17,6 +17,7 @@ echo "Collecting load test results"
 load_test_log=$ARTIFACT_DIR/load-tests.log
 find "$output_dir" -type f -name '*.log' -exec cp -vf {} "${ARTIFACT_DIR}" \;
 find "$output_dir" -type f -name 'load-tests.json' -exec cp -vf {} "${ARTIFACT_DIR}" \;
+find "$output_dir" -type f -name 'trace.json' -exec cp -vf {} "${ARTIFACT_DIR}" \;
 find "$output_dir" -type f -name 'gh-rate-limits-remaining.csv' -exec cp -vf {} "${ARTIFACT_DIR}" \;
 
 pipelineruns_json=$ARTIFACT_DIR/pipelineruns.json
