@@ -1342,8 +1342,8 @@ github.com/redhat-appstudio/application-api v0.0.0-20230704143842-035c661f115f h
 github.com/redhat-appstudio/application-api v0.0.0-20230704143842-035c661f115f/go.mod h1:LpcTNLCDMf1CUNTw2bgTiz8M49sUsN2F9T7bOSKcJEo=
 github.com/redhat-appstudio/application-service v0.0.0-20230717184417-67d31a01a776 h1:qaNoaKn+RHg3Z3SsDYSkLEto8qlNjHJGUJ5CCMzE8gY=
 github.com/redhat-appstudio/application-service v0.0.0-20230717184417-67d31a01a776/go.mod h1:meLjzNehwlqPyjd8Gg78oXRpRy5HQ4nCulk8u8mCjqs=
-github.com/redhat-appstudio/build-service v0.0.0-20230727072250-19c7a8b5c63d h1:bk/mBxEb1mSRQ/xuCuNQfxm4Riz/KNJ1AI8pekrNsmo=
-github.com/redhat-appstudio/build-service v0.0.0-20230727072250-19c7a8b5c63d/go.mod h1:zpT61sPazrKuE2GrFaoxVfyWO1x5vjmSntJtaMYAE2U=
+github.com/redhat-appstudio/build-service v0.0.0-20231101160830-3417e67c23d0 h1:jpMIrLblyZ00YJ8YPbDtg6zdOg9BpwqbpedcTjUs3xI=
+github.com/redhat-appstudio/build-service v0.0.0-20231101160830-3417e67c23d0/go.mod h1:F+uRmlQ7laCyymYpwqVSW5P51Wqq+IAF0UyRhtcRDhU=
 github.com/redhat-appstudio/image-controller v0.0.0-20231003082540-48893226ba8b h1:kM+t/FZSMVUydXIbii+bduAJov7pcADCybP9u1WSBcw=
 github.com/redhat-appstudio/image-controller v0.0.0-20231003082540-48893226ba8b/go.mod h1:fNP2oUEejlHZUkAz2f0ViKNl0D8w4cD8QVoGy1pri9c=
 github.com/redhat-appstudio/integration-service v0.0.0-20231017154915-ca19edc57d63 h1:W8vWfVOfGtQgo6ESmcmCxTN3MQlzv74kWUbBNSBsfTY=
@@ -1356,10 +1356,10 @@ github.com/redhat-appstudio/operator-toolkit v0.0.0-20230913085326-6c5e9d368a6a 
 github.com/redhat-appstudio/operator-toolkit v0.0.0-20230913085326-6c5e9d368a6a/go.mod h1:7cX2+4KGZLJ4Yoj+1v0iV5hkCGBzbSd9wkNJQjCdDJs=
 github.com/redhat-appstudio/release-service v0.0.0-20231012135118-498f8de95cc4 h1:2o7W/6e8PY4hIePCoJNJhOuVSr7FFfYgMeYp+fAoaAM=
 github.com/redhat-appstudio/release-service v0.0.0-20231012135118-498f8de95cc4/go.mod h1:nn+jLoCUky2VwmZPD3amxreRj4QJNp+ALhNgrKfLgno=
-github.com/redhat-appstudio/remote-secret v0.0.0-20230713072146-a6094c712436 h1:6XYknDslXDSVpNqEKnI+gKj3Uu4afK2S+IIH3KogX1E=
-github.com/redhat-appstudio/remote-secret v0.0.0-20230713072146-a6094c712436/go.mod h1:QlcxNg0q63QFGr9ceI3dH7a7vO6gGh+2TJrbTiMf9DE=
-github.com/redhat-appstudio/service-provider-integration-operator v0.2023.22-0.20230713080056-eae17aa8c172 h1:Zibq2RBTzcoDgZcTfM5k2o1qrKuix3YPtYQ/NuP039Y=
-github.com/redhat-appstudio/service-provider-integration-operator v0.2023.22-0.20230713080056-eae17aa8c172/go.mod h1:FGHbzLSIpXZKFVKKQr1sSrgN3+wBpJw0wTTjTRNNm+k=
+github.com/redhat-appstudio/remote-secret v0.0.0-20230730075044-5bb0218b8f8f h1:VnvouJ7ojP9bpfkOY4d4iSZKSf9K9+YgFAtVoXk1CCw=
+github.com/redhat-appstudio/remote-secret v0.0.0-20230730075044-5bb0218b8f8f/go.mod h1:yteY3nF6UR7Oz2/kFN82JrRY2CXG0b1PhcPS9xgDbXM=
+github.com/redhat-appstudio/service-provider-integration-operator v0.2023.22-0.20230731122342-dfc17adc9829 h1:MQSWlxlEXqb7e6jYlGOKDbi0BAiVHQ4B88d1unaaW7Q=
+github.com/redhat-appstudio/service-provider-integration-operator v0.2023.22-0.20230731122342-dfc17adc9829/go.mod h1:3u54e09c5OUgqjNLiyopikUWhYg8yN4TTI9vTEpFVCg=
 github.com/redhat-cop/operator-utils v1.3.3-0.20220121120056-862ef22b8cdf/go.mod h1:FfTyeSCu+e2VLgeMh/1RFG8TSkVjKRPEyR6EmDt0RIw=
 github.com/redhat-developer/alizer/go v0.0.0-20230516215932-135a2bb3fb90 h1:pFKn+Vqg3xXrueGboXYRkmKPJ6ObaVBNbKF1M7NG/mA=
 github.com/redhat-developer/alizer/go v0.0.0-20230516215932-135a2bb3fb90/go.mod h1:y7XToX/Yq1ASZY8hatAkmXJSzEXlHZV8lf59wliUfOw=
@@ -1533,8 +1533,8 @@ github.com/vmihailenco/tagparser/v2 v2.0.0/go.mod h1:Wri+At7QHww0WTrCBeu4J6bNtoV
 github.com/vmware/govmomi v0.20.3/go.mod h1:URlwyTFZX72RmxtxuaFL2Uj3fD1JTvZdx59bHWk6aFU=
 github.com/willf/bitset v1.1.11-0.20200630133818-d5bec3311243/go.mod h1:RjeCKbqT1RxIR/KWY6phxZiaY1IyutSBfGjNPySAYV4=
 github.com/willf/bitset v1.1.11/go.mod h1:83CECat5yLh5zVOf4P1ErAgKA5UDvKtgyUABdr3+MjI=
-github.com/xanzy/go-gitlab v0.86.0 h1:jR8V9cK9jXRQDb46KOB20NCF3ksY09luaG0IfXE6p7w=
-github.com/xanzy/go-gitlab v0.86.0/go.mod h1:5ryv+MnpZStBH8I/77HuQBsMbBGANtVpLWC15qOjWAw=
+github.com/xanzy/go-gitlab v0.88.0 h1:9GHBrxyCUNZZNuAsbJ1NbEH6XAYsKyTn6NfE0wYO5SY=
+github.com/xanzy/go-gitlab v0.88.0/go.mod h1:5ryv+MnpZStBH8I/77HuQBsMbBGANtVpLWC15qOjWAw=
 github.com/xanzy/ssh-agent v0.3.0/go.mod h1:3s9xbODqPuuhK9JV1R321M/FlMZSBvE5aY6eAcqrDh0=
 github.com/xanzy/ssh-agent v0.3.3 h1:+/15pJfg/RsTxqYcX6fHqOXZwwMP+2VyYWJeWM2qQFM=
 github.com/xanzy/ssh-agent v0.3.3/go.mod h1:6dzNDKs0J9rVPHPhaGCukekBHKqfl+L3KghI1Bc68Uw=

@@ -502,7 +502,7 @@ var _ = framework.BuildSuiteDescribe("Build service E2E tests", Label("build", "
 					mergeResultSha, f.AsKubeAdmin.TektonController, &has.RetryOptions{Retries: 2, Always: true})).To(Succeed())
 			})
 
-			It("does not have expiration set", func() {
+			It("image does not have expiration set", func() {
 				image, err := build.ImageFromPipelineRun(pipelineRun)
 				Expect(err).ShouldNot(HaveOccurred())
 
@@ -528,7 +528,24 @@ var _ = framework.BuildSuiteDescribe("Build service E2E tests", Label("build", "
 				Expect(err).ShouldNot(HaveOccurred(), fmt.Sprintf("failed while checking if the image repo %s is private", imageRepoName))
 				Expect(isPublic).To(BeFalse(), "Expected image repo to changed to private, but it is public")
 			})
-
+			It("retrigger the pipeline manually", func() {
+				Expect(f.AsKubeAdmin.HasController.SetComponentAnnotation(componentName, controllers.BuildRequestAnnotationName, controllers.BuildRequestTriggerPaCBuildAnnotationValue, testNamespace)).To(Succeed())
+				// Check the pipelinerun is triggered
+				Eventually(func() error {
+					pipelineRun, err = f.AsKubeAdmin.HasController.GetComponentPipelineRun(componentName, applicationName, testNamespace, "")
+					if err != nil {
+						GinkgoWriter.Printf("PipelineRun is not been retriggered yet for the component %s/%s\n", testNamespace, componentName)
+						return err
+					}
+					if !pipelineRun.HasStarted() {
+						return fmt.Errorf("pipelinerun %s/%s hasn't been started yet", pipelineRun.GetNamespace(), pipelineRun.GetName())
+					}
+					return nil
+				}, 2*time.Minute, constants.PipelineRunPollingInterval).Should(Succeed(), fmt.Sprintf("timed out when waiting for the PipelineRun to retrigger for the component %s/%s", testNamespace, componentName))
+			})
+			It("retriggered pipelineRun should eventually finish", func() {
+				Expect(f.AsKubeAdmin.HasController.WaitForComponentPipelineToBeFinished(component, "", 2, f.AsKubeAdmin.TektonController)).To(Succeed())
+			})
 		})
 
 		When("the component is removed and recreated (with the same name in the same namespace)", func() {
