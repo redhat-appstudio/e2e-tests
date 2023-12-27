@@ -2,6 +2,10 @@
   monitoring_query: sum(tekton_pipelines_controller_running_pipelineruns_count)
   monitoring_step: 15
 
+- name: measurements.tekton_pods_create_to_complete_seconds_average
+  monitoring_query: avg(tekton_pods_create_to_complete_seconds_sum{namespace=~"test-rhtap-.*-tenant"}/tekton_pods_create_to_complete_seconds_count{namespace=~"test-rhtap-.*-tenant"})
+  monitoring_step: 15
+
 - name: measurements.storage_count_attachable_volumes_in_use
   monitoring_query: sum(storage_count_attachable_volumes_in_use)
   monitoring_step: 15
