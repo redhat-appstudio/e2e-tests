@@ -36,6 +36,7 @@ import (
 
 var (
 	componentRepoUrl              string = "https://github.com/devfile-samples/devfile-sample-code-with-quarkus"
+	componentsCount               int = 1
 	usernamePrefix                string = "testuser"
 	numberOfUsers                 int
 	testScenarioGitURL            string = "https://github.com/redhat-appstudio/integration-examples.git"
@@ -57,6 +58,12 @@ var (
 	pushGatewayURI                string = ""
 	jobName                       string = ""
 )
+
+// UserAppsCompsMap is a thread-safe map for user -> applications -> components
+type UserAppsCompsMap struct {
+	mutex sync.RWMutex
+	data  map[string]map[string][]string
+}
 
 var (
 	UserCreationTimeMaxPerThread         []time.Duration
@@ -141,6 +148,7 @@ type LogData struct {
 	MachineName                       string  `json:"machineName"`
 	BinaryDetails                     string  `json:"binaryDetails"`
 	ComponentRepoUrl                  string  `json:"componentRepoUrl"`
+	ComponentsCount                   int     `json:"componentsCount"`
 	NumberOfThreads                   int     `json:"threads"`
 	NumberOfUsersPerThread            int     `json:"usersPerThread"`
 	NumberOfUsers                     int     `json:"totalUsers"`
@@ -221,6 +229,7 @@ type JourneyContext struct {
 	ChPipelines                  chan string
 	ChIntegrationTestsPipelines  chan string
 	ChDeployments                chan string
+	userAppsCompsMap             UserAppsCompsMap
 }
 
 func createLogDataJSON(outputFile string, logDataInput LogData) error {
@@ -265,6 +274,7 @@ func ExecuteLoadTest() {
 
 func init() {
 	rootCmd.Flags().StringVar(&componentRepoUrl, "component-repo", componentRepoUrl, "the component repo URL to be used")
+	rootCmd.Flags().IntVar(&componentsCount, "components-count", componentsCount, "number of components to create per application")
 	rootCmd.Flags().StringVar(&usernamePrefix, "username", usernamePrefix, "the prefix used for usersignup names")
 	rootCmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "if 'debug' traces should be displayed in the console")
 	rootCmd.Flags().BoolVarP(&stage, "stage", "s", false, "is you want to run the test on stage")
@@ -392,6 +402,7 @@ func setup(cmd *cobra.Command, args []string) {
 		MachineName:               machineName,
 		BinaryDetails:             binaryDetails,
 		ComponentRepoUrl:          componentRepoUrl,
+		ComponentsCount:           componentsCount,
 		NumberOfThreads:           threadCount,
 		NumberOfUsersPerThread:    numberOfUsers,
 		NumberOfUsers:             overallCount,
@@ -529,9 +540,10 @@ func setup(cmd *cobra.Command, args []string) {
 			IntegrationTestsPipelinesBar: IntegrationTestsPipelinesBar,
 			DeploymentsBar:               DeploymentsBar,
 			ChUsers:                      make(chan string, numberOfUsers),
-			ChPipelines:                  make(chan string, numberOfUsers),
-			ChIntegrationTestsPipelines:  make(chan string, numberOfUsers),
-			ChDeployments:                make(chan string, numberOfUsers),
+			ChPipelines:                  make(chan string, numberOfUsers * componentsCount),
+			ChIntegrationTestsPipelines:  make(chan string, numberOfUsers * componentsCount),
+			ChDeployments:                make(chan string, numberOfUsers * componentsCount),
+			userAppsCompsMap:             UserAppsCompsMap{mutex: sync.RWMutex{}, data: make(map[string]map[string][]string)},
 		}
 
 		go userJourneyThread(threadCtx)
@@ -825,6 +837,81 @@ func increaseBar(bar *uiprogress.Bar, mutex *sync.Mutex) {
 	}
 }
 
+// AddUser adds a new user to the map
+func (u *UserAppsCompsMap) AddUser(userName string) {
+	u.mutex.Lock()
+	defer u.mutex.Unlock()
+	u.data[userName] = make(map[string][]string)
+}
+
+// AddApplication adds a new application to a user
+func (u *UserAppsCompsMap) AddApplication(userName, appName string) {
+	u.mutex.Lock()
+	defer u.mutex.Unlock()
+	innerMap, ok := u.data[userName]
+	if !ok {
+		return
+	}
+	innerMap[appName] = []string{}
+}
+
+// AddComponent adds a new component to a specific application for a user
+func (u *UserAppsCompsMap) AddComponent(userName, appName, componentName string) {
+	u.mutex.Lock()
+	defer u.mutex.Unlock()
+	innerMap, ok := u.data[userName]
+	if !ok {
+		return
+	}
+	components, ok := innerMap[appName]
+	if !ok {
+		return
+	}
+	components = append(components, componentName)
+	innerMap[appName] = components
+}
+
+// GetUsers retrieves list of users
+func (u *UserAppsCompsMap) GetUsers() []string {
+	u.mutex.RLock()
+	defer u.mutex.RUnlock()
+	userNames := make([]string, 0, len(u.data))
+	for userName := range u.data {
+		userNames = append(userNames, userName)
+	}
+	return userNames
+}
+
+// GetUserApps retrieves a list of applications for a specific user
+func (u *UserAppsCompsMap) GetUserApps(userName string) []string {
+	u.mutex.RLock()
+	defer u.mutex.RUnlock()
+	userApps, ok := u.data[userName]
+	if !ok {
+		return nil
+	}
+	appNames := make([]string, 0, len(userApps))
+	for appName := range userApps {
+		appNames = append(appNames, appName)
+	}
+	return appNames
+}
+
+// GetAppComps retrieves a list of components for specific user and application
+func (u *UserAppsCompsMap) GetAppComps(userName, appName string) []string {
+	u.mutex.RLock()
+	defer u.mutex.RUnlock()
+	userApps, ok := u.data[userName]
+	if !ok {
+		return nil
+	}
+	appComps, ok := userApps[appName]
+	if !ok {
+		return nil
+	}
+	return appComps
+}
+
 func componentForUser(username string) string {
 	val, ok := userComponentMap.Load(username)
 	if ok {
@@ -969,6 +1056,7 @@ func (h *ConcreteHandlerUsers) Handle(ctx *JourneyContext) {
 				frameworkMap.Store(username, framework)
 			}
 
+			ctx.userAppsCompsMap.AddUser(username)
 			ctx.ChUsers <- username
 
 			userCreationTime := time.Since(startTime)
@@ -1011,7 +1099,6 @@ func (h *ConcreteHandlerResources) Handle(ctx *JourneyContext) {
 			// Generate a random name with #combinations > 11M
 			// create unique resource names that adhere to RFC 1123 Label Names
 			// https://kubernetes.io/docs/concepts/overview/working-with-objects/names/
-
 			applicationName := fmt.Sprintf("%s-app-%s", username, util.GenerateRandomString(5))
 			if !h.handleApplicationCreation(ctx, framework, username, usernamespace, applicationName) {
 				// If Application creation failed, continue with the next user
@@ -1047,6 +1134,7 @@ func (h *ConcreteHandlerResources) Handle(ctx *JourneyContext) {
 }
 
 func (h *ConcreteHandlerResources) handleApplicationCreation(ctx *JourneyContext, framework *framework.Framework, username, usernamespace, applicationName string) bool {
+
 	startTimeForApplication := time.Now()
 	_, err := framework.AsKubeDeveloper.HasController.CreateApplicationWithTimeout(applicationName, usernamespace, 60*time.Minute)
 	applicationCreationTime := time.Since(startTimeForApplication)
@@ -1115,6 +1203,7 @@ func (h ComponentSuccessHandler) HandleSuccess(ctx *JourneyContext, componentNam
 }
 
 func handleCondition(condition metav1.Condition, ctx *JourneyContext, name string, creationDetails CreationDetails, conditionDetails ConditionDetails, successHandler SuccessHandler) (bool, error) {
+
 	if condition.Type == conditionDetails.Type && condition.Status == conditionDetails.Status {
 		actualCreationTimeInSeconds := CalculateActualCreationTimeInSeconds(condition.LastTransitionTime.Time, creationDetails.Timestamp, creationDetails.Duration)
 		successHandler.HandleSuccess(ctx, name, actualCreationTimeInSeconds)
@@ -1170,6 +1259,7 @@ func (h *ConcreteHandlerResources) validateApplicationCreation(ctx *JourneyConte
 		return false
 	}
 
+	ctx.userAppsCompsMap.AddApplication(username, applicationName)
 	return true
 }
 
@@ -1200,6 +1290,7 @@ func handleApplicationFailure(ctx *JourneyContext, ApplicationName string, usern
 
 // CreateIntegrationTestScenario creates a random its name with #combinations > 450K
 func (h *ConcreteHandlerResources) handleIntegrationTestScenarioCreation(ctx *JourneyContext, framework *framework.Framework, username, usernamespace, applicationName string) bool {
+
 	// Generate a random name with #combinations > 11M
 	itsName := fmt.Sprintf("%s-its-%s", username, util.GenerateRandomString(5))
 	startTimeForIts := time.Now()
@@ -1303,6 +1394,7 @@ func handleItsFailure(ctx *JourneyContext, applicationName string, err, conditio
 }
 
 func (h *ConcreteHandlerResources) handleCDQCreation(ctx *JourneyContext, framework *framework.Framework, username, usernamespace, applicationName string) (bool, *appstudioApi.ComponentDetectionQuery) {
+
 	// Generate a random name with #combinatireation(ctx *JourneyContext, framework *framework.Framework, username, usernamespace, applicationName string) (bool, *appstudioApi.ComponentDetectionQuery) {
 	// Generate a random name with #combinations > 11M
 	ComponentDetectionQueryName := fmt.Sprintf("%s-cdq-%s", username, util.GenerateRandomString(5))
@@ -1324,8 +1416,8 @@ func (h *ConcreteHandlerResources) handleCDQCreation(ctx *JourneyContext, framew
 		increaseBar(ctx.CDQsBar, cdqsBarMutex)
 		return false, nil
 	}
-	if len(cdq.Status.ComponentDetected) > 1 {
-		logError(11, fmt.Sprintf("cdq (%s) detected more than 1 component", cdq.Name))
+	if len(cdq.Status.ComponentDetected) == 0 {
+		logError(11, fmt.Sprintf("cdq (%s) detected no component", cdq.Name))
 		FailedCDQCreationsPerThread[ctx.ThreadIndex] += 1
 		MetricsWrapper(MetricsController, metricsConstants.CollectorCDQ, metricsConstants.MetricTypeCounter, metricsConstants.MetricFailedCDQCreationCounter)
 		increaseBar(ctx.CDQsBar, cdqsBarMutex)
@@ -1409,16 +1501,17 @@ func handleCdqFailure(ctx *JourneyContext, applicationName string, err, conditio
 }
 
 func (h *ConcreteHandlerResources) handleComponentCreation(ctx *JourneyContext, framework *framework.Framework, username, usernamespace, applicationName string, cdq *appstudioApi.ComponentDetectionQuery) bool {
+
 	var (
-		componentName         string
 		startTimeForComponent time.Time
 		componentCreationTime time.Duration
-		shouldContinue        bool
+		componentsCounter     int
 	)
 
 	for _, compStub := range cdq.Status.ComponentDetected {
 		startTimeForComponent = time.Now()
-		component, innerComponentName, err := framework.AsKubeDeveloper.HasController.CreateComponentV2(compStub.ComponentStub, usernamespace, "", "", applicationName, pipelineSkipInitialChecks, map[string]string{}, "")
+		compStub.ComponentStub.ComponentName = fmt.Sprintf("%s-comp-%d", applicationName, componentsCounter)
+		component, innerComponentName, err := framework.AsKubeDeveloper.HasController.CreateComponent(compStub.ComponentStub, usernamespace, "", "", applicationName, pipelineSkipInitialChecks, map[string]string{})
 		componentCreationTime = time.Since(startTimeForComponent)
 
 		if err != nil {
@@ -1426,35 +1519,43 @@ func (h *ConcreteHandlerResources) handleComponentCreation(ctx *JourneyContext, 
 			FailedComponentCreationsPerThread[ctx.ThreadIndex] += 1
 			MetricsWrapper(MetricsController, metricsConstants.CollectorComponents, metricsConstants.MetricTypeCounter, metricsConstants.MetricFailedComponentCreationCounter)
 			increaseBar(ctx.ComponentsBar, componentsBarMutex)
-			shouldContinue = true
-			break // Exit the inner loop
+			return false
 		}
 		if component.Name != innerComponentName {
 			logError(15, fmt.Sprintf("Actual component name (%s) does not match expected (%s): %v", component.Name, innerComponentName, err))
 			FailedComponentCreationsPerThread[ctx.ThreadIndex] += 1
 			MetricsWrapper(MetricsController, metricsConstants.CollectorComponents, metricsConstants.MetricTypeCounter, metricsConstants.MetricFailedComponentCreationCounter)
 			increaseBar(ctx.ComponentsBar, componentsBarMutex)
-			shouldContinue = true
-			break // Exit the inner loop
+			return false
 		}
-		componentName = innerComponentName
 
 		ComponentCreationTimeSumPerThread[ctx.ThreadIndex] += componentCreationTime
 		MetricsWrapper(MetricsController, metricsConstants.CollectorComponents, metricsConstants.MetricTypeGuage, metricsConstants.MetricComponentCreationTimeGauge, componentCreationTime.Seconds())
 		if componentCreationTime > ComponentCreationTimeMaxPerThread[ctx.ThreadIndex] {
 			ComponentCreationTimeMaxPerThread[ctx.ThreadIndex] = componentCreationTime
 		}
+
+		validated := h.validateComponent(ctx, framework, component.Name, applicationName, username, usernamespace, componentCreationTime)
+		if ! validated {
+			logError(30, fmt.Sprintf("Validation of component name (%s) failed with: %v", component.Name, err))
+			return false
+		}
+
+		// If we already created enough components, quit
+		componentsCounter++
+		if componentsCounter >= componentsCount {
+			break
+		}
 	}
 
-	// handleComponentCreation failed
-	if shouldContinue {
-		return false
-	}
+	// TODO: If we still need more components, keep creating!
 
-	return h.validateComponent(ctx, framework, componentName, applicationName, username, usernamespace, componentCreationTime)
+	ctx.ChPipelines <- username
+	return true
 }
 
 func (h *ConcreteHandlerResources) validateComponent(ctx *JourneyContext, framework *framework.Framework, componentName, applicationName, username, usernamespace string, componentCreationTime time.Duration) bool {
+
 	componentValidationInterval := time.Second * 20
 	componentValidationTimeout := time.Minute * 30
 	var conditionError error
@@ -1487,6 +1588,7 @@ func (h *ConcreteHandlerResources) validateComponent(ctx *JourneyContext, framew
 		for _, condition := range component.Status.Conditions {
 			done, err := handleCondition(condition, ctx, componentName, creationDetails, conditionDetails, ComponentSuccessHandler{Username: username})
 			if done || err != nil {
+				ctx.userAppsCompsMap.AddComponent(username, applicationName, component.Name)
 				return done, err
 			}
 		}
@@ -1497,6 +1599,7 @@ func (h *ConcreteHandlerResources) validateComponent(ctx *JourneyContext, framew
 		handleComponentFailure(ctx, applicationName, err, conditionError)
 		return false
 	}
+
 	return true
 }
 
@@ -1505,9 +1608,7 @@ func handleComponentSuccess(ctx *JourneyContext, username, componentName string,
 	MetricsWrapper(MetricsController, metricsConstants.CollectorComponents, metricsConstants.MetricTypeGuage, metricsConstants.MetricActualComponentCreationTimeGauge, componentActualCreationTimeInSeconds)
 	SuccessfulComponentCreationsPerThread[ctx.ThreadIndex] += 1
 	MetricsWrapper(MetricsController, metricsConstants.CollectorComponents, metricsConstants.MetricTypeCounter, metricsConstants.MetricSuccessfulComponentCreationCounter)
-	userComponentMap.Store(username, componentName)
 	increaseBar(ctx.ComponentsBar, componentsBarMutex)
-	ctx.ChPipelines <- username
 }
 
 func handleComponentFailure(ctx *JourneyContext, applicationName string, err, conditionError error) {
@@ -1531,6 +1632,7 @@ func (h *ConcreteHandlerPipelines) Handle(ctx *JourneyContext) {
 	if waitPipelines {
 		go func() {
 			defer ctx.innerThreadWG.Done()
+
 			chIntegrationTestsPipelines := ctx.ChIntegrationTestsPipelines
 
 			for username := range ctx.ChPipelines {
@@ -1540,28 +1642,28 @@ func (h *ConcreteHandlerPipelines) Handle(ctx *JourneyContext) {
 					increaseBar(ctx.PipelinesBar, pipelinesBarMutex)
 					continue
 				}
+
 				usernamespace := framework.UserNamespace
-				componentName := componentForUser(username)
-				if componentName == "" {
-					logError(19, fmt.Sprintf("Component not found for username %s", username))
-					increaseBar(ctx.PipelinesBar, pipelinesBarMutex)
-					continue
+
+				for _, applicationName := range ctx.userAppsCompsMap.GetUserApps(username) {
+					for _, componentName := range ctx.userAppsCompsMap.GetAppComps(username, applicationName) {
+						h.validatePipeline(ctx, framework, componentName, applicationName, username, usernamespace)
+					}
 				}
 
-				applicationName := fmt.Sprintf("%s-app", username)
-				h.validatePipeline(ctx, framework, componentName, applicationName, username, usernamespace)
 			}
 			close(chIntegrationTestsPipelines)
 		}()
+	}
 
-		// After calling ConcreteHandlerPipelines's logic, trigger the next handler in a new goroutine
-		if h.next != nil {
-			h.next.Handle(ctx)
-		}
+	// After calling ConcreteHandlerPipelines's logic, trigger the next handler in a new goroutine
+	if h.next != nil {
+		h.next.Handle(ctx)
 	}
 }
 
 func (h *ConcreteHandlerPipelines) validatePipeline(ctx *JourneyContext, framework *framework.Framework, componentName, applicationName, username, usernamespace string) {
+
 	pipelineCreatedRetryInterval := time.Second * 20
 	pipelineCreatedTimeout := time.Minute * 30
 	var pipelineRun *pipeline.PipelineRun
@@ -1627,6 +1729,7 @@ func (h *ConcreteHandlerPipelines) validatePipeline(ctx *JourneyContext, framewo
 }
 
 func (h *ConcreteHandlerPipelines) validatePipelineCreation(ctx *JourneyContext, framework *framework.Framework, componentName, applicationName, usernamespace string, pipelineCreatedRetryInterval, pipelineCreatedTimeout time.Duration) (error, string) {
+
 	var pipelineRun *pipeline.PipelineRun
 
 	err := k8swait.PollUntilContextTimeout(context.Background(), pipelineCreatedRetryInterval, pipelineCreatedTimeout, false, func(ctx context.Context) (done bool, err error) {
@@ -1681,11 +1784,11 @@ func (h *ConcreteHandlerItsPipelines) Handle(ctx *JourneyContext) {
 			}
 			close(chDeployments)
 		}()
+	}
 
-		// After calling ConcreteHandlerItsPipelines's logic, trigger the next handler in a new goroutine
-		if h.next != nil {
-			h.next.Handle(ctx)
-		}
+	// After calling ConcreteHandlerItsPipelines's logic, trigger the next handler in a new goroutine
+	if h.next != nil {
+		h.next.Handle(ctx)
 	}
 }
 
@@ -1809,20 +1912,20 @@ func (h *ConcreteHandlerDeployments) Handle(ctx *JourneyContext) {
 	if waitDeployments {
 		go func() {
 			defer ctx.innerThreadWG.Done()
+
 			for username := range ctx.ChDeployments {
 				// since username added to chDeployments only after valid framework, usernamespace, componentName, and applicationName have been created
 				//  we don't need to verify validity for neither
 				framework := frameworkForUser(username)
 				applicationName := fmt.Sprintf("%s-app", username)
 				h.validateDeployment(ctx, framework, applicationName, username)
-
 			}
 		}()
+	}
 
-		// After calling ConcreteHandlerDeployments's logic, trigger the next handler in a new goroutine
-		if h.next != nil {
-			h.next.Handle(ctx)
-		}
+	// After calling ConcreteHandlerDeployments's logic, trigger the next handler in a new goroutine
+	if h.next != nil {
+		h.next.Handle(ctx)
 	}
 }
 
