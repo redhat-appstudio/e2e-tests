@@ -96,6 +96,7 @@ var _ = framework.ReleasePipelinesSuiteDescribe("FBC e2e-tests", Label("release-
 
 			_, err = devFw.AsKubeDeveloper.HasController.CreateApplication(fbcApplicationName, devNamespace)
 			Expect(err).NotTo(HaveOccurred())
+			GinkgoWriter.Println("Application is created", fbcApplicationName)
 
 			_, err = devFw.AsKubeDeveloper.ReleaseController.CreateReleasePlan(fbcReleasePlanName, devNamespace, fbcApplicationName, managedNamespace, "true")
 			Expect(err).NotTo(HaveOccurred())
