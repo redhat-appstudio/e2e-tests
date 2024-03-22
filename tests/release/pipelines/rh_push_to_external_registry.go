@@ -138,7 +138,7 @@ var _ = framework.ReleasePipelinesSuiteDescribe("[HACBS-1571]test-release-e2e-pu
 			additionalComponentDetected = compDetected
 		}
 
-		_, err = fw.AsKubeAdmin.ReleaseController.CreateReleasePlan(releasecommon.SourceReleasePlanName, devNamespace, releasecommon.ApplicationNameDefault, managedNamespace, "true")
+		_, err = fw.AsKubeAdmin.ReleaseController.CreateReleasePlan(releasecommon.SourceReleasePlanName, devNamespace, releasecommon.ApplicationNameDefault, managedNamespace, "true", nil)
 		Expect(err).NotTo(HaveOccurred())
 
 		data, err := json.Marshal(map[string]interface{}{

@@ -31,7 +31,7 @@ var _ = framework.ReleaseServiceSuiteDescribe("[HACBS-2469]test-releaseplan-owne
 		_, err = fw.AsKubeAdmin.HasController.CreateApplication(releasecommon.ApplicationNameDefault, devNamespace)
 		Expect(err).NotTo(HaveOccurred())
 
-		_, err = fw.AsKubeAdmin.ReleaseController.CreateReleasePlan(releasecommon.SourceReleasePlanName, devNamespace, releasecommon.ApplicationNameDefault, "managed", "true")
+		_, err = fw.AsKubeAdmin.ReleaseController.CreateReleasePlan(releasecommon.SourceReleasePlanName, devNamespace, releasecommon.ApplicationNameDefault, "managed", "true", nil)
 		Expect(err).NotTo(HaveOccurred())
 	})
 

@@ -139,7 +139,7 @@ var _ = framework.IntegrationServiceSuiteDescribe("Integration Service E2E tests
 		})
 
 		It("creates a ReleasePlan and an environment", func() {
-			_, err = f.AsKubeAdmin.ReleaseController.CreateReleasePlan(autoReleasePlan, testNamespace, applicationName, targetReleaseNamespace, "")
+			_, err = f.AsKubeAdmin.ReleaseController.CreateReleasePlan(autoReleasePlan, testNamespace, applicationName, targetReleaseNamespace, "", nil)
 			Expect(err).ShouldNot(HaveOccurred())
 			env, err = f.AsKubeAdmin.GitOpsController.CreatePocEnvironment(EnvironmentName, testNamespace)
 			Expect(err).ShouldNot(HaveOccurred())
