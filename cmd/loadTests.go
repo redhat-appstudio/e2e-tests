@@ -464,6 +464,7 @@ type JourneyContext struct {
 	ChDeployments                chan string
 	userAppsCompsMap             UserAppsCompsMap
 }
+var journeyContexts []*JourneyContext   // pointers to all thread contexts
 
 func createLogDataJSON(outputFile string, logDataInput LogData) error {
 	jsonData, err := json.MarshalIndent(logDataInput, "", "  ")
@@ -776,6 +777,7 @@ func setup(cmd *cobra.Command, args []string) {
 			ChDeployments:                make(chan string, numberOfUsers*componentsCount),
 			userAppsCompsMap:             UserAppsCompsMap{mutex: sync.RWMutex{}, Users: make(map[string]*UserInfo)},
 		}
+		journeyContexts = append(journeyContexts, threadCtx)
 
 		go userJourneyThread(threadCtx)
 	}
@@ -960,10 +962,9 @@ func setup(cmd *cobra.Command, args []string) {
 
 	workloadKPI := logData.AverageTimeToCreateApplications + logData.AverageTimeToCreateCDQs + logData.AverageTimeToCreateComponents + logData.AverageTimeToRunPipelineSucceeded + logData.AverageTimeToDeploymentSucceeded
 	logData.WorkloadKPI = workloadKPI
-	// TODO: How to get frameworks from context?
-	//if stage {
-	//	StageCleanup(selectedUsers)
-	//}
+	if stage {
+		StageCleanup(journeyContexts)
+	}
 
 	klog.Infof("🏁 Load Test Completed!")
 	klog.Infof("📈 Results 📉")
@@ -1013,23 +1014,25 @@ func setup(cmd *cobra.Command, args []string) {
 	klog.Flush()
 }
 
-// TODO: Get this back
-//func StageCleanup(users []loadtestUtils.User) {
-//
-//	for _, user := range users {
-//		//framework := frameworkForUser(user.Username)
-//		framework := ctx.userAppsCompsMap.GetUserFramework(username)
-//		err := framework.AsKubeDeveloper.HasController.DeleteAllApplicationsInASpecificNamespace(framework.UserNamespace, 5*time.Minute)
-//		if err != nil {
-//			klog.Errorf("while deleting resources for user: %s, got error: %v\n", user.Username, err)
-//		}
-//
-//		err = framework.AsKubeDeveloper.HasController.DeleteAllComponentDetectionQueriesInASpecificNamespace(framework.UserNamespace, 5*time.Minute)
-//		if err != nil {
-//			klog.Errorf("while deleting component detection queries for user: %s, got error: %v\n", user.Username, err)
-//		}
-//	}
-//}
+func StageCleanup(journeyContexts []*JourneyContext) {
+	klog.V(5).Infof("StageCleanup start")
+	defer klog.V(5).Infof("StageCleanup end")
+
+	for _, journeyCtx := range journeyContexts {
+		for _, username := range journeyCtx.userAppsCompsMap.GetUsers() {
+			framework := journeyCtx.userAppsCompsMap.GetUserFramework(username)
+			err := framework.AsKubeDeveloper.HasController.DeleteAllApplicationsInASpecificNamespace(framework.UserNamespace, 5*time.Minute)
+			if err != nil {
+				klog.Errorf("while deleting resources for username: %s, got error: %v\n", username, err)
+			}
+
+			err = framework.AsKubeDeveloper.HasController.DeleteAllComponentDetectionQueriesInASpecificNamespace(framework.UserNamespace, 5*time.Minute)
+			if err != nil {
+				klog.Errorf("while deleting component detection queries for username: %s, got error: %v\n", username, err)
+			}
+		}
+	}
+}
 
 func MetricsWrapper(M *metrics.MetricsPush, collector string, metricType string, metric string, values ...float64) {
 	if !disableMetrics {
