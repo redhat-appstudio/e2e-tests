@@ -1322,8 +1322,8 @@ func (h ComponentSuccessHandler) HandleSuccess(ctx *JourneyContext, componentNam
 }
 
 func handleCondition(condition metav1.Condition, ctx *JourneyContext, name string, creationDetails CreationDetails, conditionDetails ConditionDetails, successHandler SuccessHandler) (bool, error) {
-	klog.V(5).Infof("handleCondition start name: %s, creationDetails: %s, conditionDetails: %s, condition: %s", name, creationDetails, conditionDetails, condition)
-	defer klog.V(5).Infof("handleCondition end name: %s, creationDetails: %s, conditionDetails: %s, condition: %s", name, creationDetails, conditionDetails, condition)
+	klog.V(5).Infof("handleCondition start name: %s, creationDetails: %s, conditionDetails: %s, condition: %v", name, creationDetails, conditionDetails, condition)
+	defer klog.V(5).Infof("handleCondition end name: %s, creationDetails: %s, conditionDetails: %s, condition: %v", name, creationDetails, conditionDetails, condition)
 
 	if condition.Type == conditionDetails.Type && condition.Status == conditionDetails.Status {
 		actualCreationTimeInSeconds := CalculateActualCreationTimeInSeconds(condition.LastTransitionTime.Time, creationDetails.Timestamp, creationDetails.Duration)
