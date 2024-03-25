@@ -46,11 +46,7 @@ type UserInfo struct {
 
 type AppInfo struct {
 	Components               []string
-	IntegrationTestScenarios map[string]*ItsInfo
-}
-
-type ItsInfo struct {
-	PipelineRun string
+	IntegrationTestScenarios []string
 }
 
 // AddUser adds a new user to the map
@@ -117,34 +113,6 @@ func (u *UserAppsCompsMap) AddComponent(userName, appName, compName string) {
 	klog.V(5).Infof("AddComponent added userName: %s, appName: %s, compName: %s", userName, appName, compName)
 }
 
-// AddTestPipelineRun adds a new pipeline run with type "test" (not "build") to a specific integration test scenario for an application for an user
-func (u *UserAppsCompsMap) AddTestPipelineRun(userName, appName, itsName, prName string) {
-	u.mutex.Lock()
-	defer u.mutex.Unlock()
-
-	// Ensure the user exist
-	userInfo, ok := u.Users[userName]
-	if !ok {
-		klog.Fatalf("Can not add pipeline run for nonexistent user %s", userName)
-	}
-
-	// Ensure application exist
-	appInfo, ok := userInfo.Applications[appName]
-	if !ok {
-		klog.Fatalf("Can not add pipeline run for nonexistent application %s", appName)
-	}
-
-	// Ensure componet exist
-	itsInfo, ok := appInfo.IntegrationTestScenarios[itsName]
-	if !ok {
-		klog.Fatalf("Can not add pipeline run for nonexistent integration test scenario %s", itsName)
-	}
-
-	// Add the pipeline run to the integration test scenario
-	itsInfo.PipelineRun = prName
-	klog.V(5).Infof("AddTestPipelineRun added userName: %s, appName: %s, itsName: %s, prName: %s", userName, appName, itsName, prName)
-}
-
 // AddIntegrationTestScenario adds a new ITS to a specific application for a user
 func (u *UserAppsCompsMap) AddIntegrationTestScenario(userName, appName, itsName string) {
 	u.mutex.Lock()
@@ -162,13 +130,8 @@ func (u *UserAppsCompsMap) AddIntegrationTestScenario(userName, appName, itsName
 		klog.Fatalf("Can not add integration test scenario for nonexistent application %s", appName)
 	}
 
-	// Create the integration test scenario entry if it doesn't exist
-	if appInfo.IntegrationTestScenarios == nil {
-		appInfo.IntegrationTestScenarios = make(map[string]*ItsInfo)
-	}
-
 	// Add the integration test scenario to the application's components list
-	appInfo.IntegrationTestScenarios[itsName] = &ItsInfo{}
+	appInfo.IntegrationTestScenarios = append(appInfo.IntegrationTestScenarios, itsName)
 	klog.V(5).Infof("AddIntegrationTestScenario added userName: %s, appName: %s, itsName: %s", userName, appName, itsName)
 }
 
@@ -232,29 +195,6 @@ func (u *UserAppsCompsMap) GetAppComps(userName, appName string) []string {
 	return appInfo.Components
 }
 
-// GetPipelineRun retrieves a pipeline run for specific user and application and integration test scenario
-func (u *UserAppsCompsMap) GetPipelineRun(userName, appName, itsName string) string {
-	u.mutex.RLock()
-	defer u.mutex.RUnlock()
-
-	userInfo, ok := u.Users[userName]
-	if !ok {
-		klog.Fatalln("Can not get pipeline run for nonexistent user")
-	}
-
-	appInfo, ok := userInfo.Applications[appName]
-	if !ok {
-		klog.Fatalln("Can not get pipeline run for nonexistent application")
-	}
-
-	itsInfo, ok := appInfo.IntegrationTestScenarios[itsName]
-	if !ok {
-		klog.Fatalln("Can not get pipeline run for nonexistent integration test scenario")
-	}
-
-	return itsInfo.PipelineRun
-}
-
 // GetIntegrationTestScenarios retrieves a list of components for specific user and application
 func (u *UserAppsCompsMap) GetIntegrationTestScenarios(userName, appName string) []string {
 	u.mutex.RLock()
@@ -270,11 +210,7 @@ func (u *UserAppsCompsMap) GetIntegrationTestScenarios(userName, appName string)
 		klog.Fatalln("Can not get integration test scenarios for nonexistent application")
 	}
 
-	itss := make([]string, 0, len(appInfo.IntegrationTestScenarios))
-	for its := range appInfo.IntegrationTestScenarios {
-		itss = append(itss, its)
-	}
-	return itss
+	return appInfo.IntegrationTestScenarios
 }
 
 var (
@@ -1804,7 +1740,6 @@ func (h *ConcreteHandlerPipelines) validatePipeline(ctx *JourneyContext, framewo
 
 	pipelineCreatedRetryInterval := time.Second * 20
 	pipelineCreatedTimeout := time.Minute * 30
-	//var pipelineRun *pipeline.PipelineRun
 
 	threadIndex := ctx.ThreadIndex
 	chIntegrationTestsPipelines := ctx.ChIntegrationTestsPipelines
@@ -1818,7 +1753,6 @@ func (h *ConcreteHandlerPipelines) validatePipeline(ctx *JourneyContext, framewo
 		increaseBar(ctx.PipelinesBar, pipelinesBarMutex)
 		return
 	}
-	// FIXME ctx.userAppsCompsMap.AddTestPipelineRun(username, applicationName, componentName, pipelineRunName)
 
 	pipelineRunRetryInterval := time.Second * 20
 	pipelineRunTimeout := time.Minute * 60
@@ -1961,8 +1895,6 @@ func (h *ConcreteHandlerItsPipelines) validateItsPipeline(ctx *JourneyContext, a
 		increaseBar(integrationTestsPipelinesBar, integrationTestsPipelinesBarMutex)
 		return
 	}
-
-	// FIXME componentPipelineRunName := ctx.userAppsCompsMap.GetPipelineRun(username, applicationName, itsName)
 
 	IntegrationTestsPipelineCreatedRetryInterval := time.Second * 20
 	IntegrationTestsPipelineCreatedTimeout := time.Minute * 30
