@@ -1582,8 +1582,9 @@ func (h *ConcreteHandlerResources) handleComponentCreation(ctx *JourneyContext, 
 			compStub = compStubs[len(cdq.Status.ComponentDetected)-1]
 		}
 		startTimeForComponent = time.Now()
-		compStub.ComponentStub.ComponentName = fmt.Sprintf("%s-comp-%d", applicationName, i)
-		component, innerComponentName, err := framework.AsKubeDeveloper.HasController.CreateComponentV2(compStub.ComponentStub, usernamespace, "", "", applicationName, pipelineSkipInitialChecks, map[string]string{})
+		innerComponentName := fmt.Sprintf("%s-comp-%d", applicationName, i)
+		compStub.ComponentStub.ComponentName = innerComponentName
+		component, err := framework.AsKubeDeveloper.HasController.CreateComponent(compStub.ComponentStub, usernamespace, "", "", applicationName, pipelineSkipInitialChecks, map[string]string{})
 		componentCreationTime = time.Since(startTimeForComponent)
 
 		if err != nil {
