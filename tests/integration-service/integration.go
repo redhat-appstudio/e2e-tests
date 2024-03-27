@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/redhat-appstudio/operator-toolkit/metadata"
+	"github.com/konflux-ci/operator-toolkit/metadata"
 
 	"github.com/devfile/library/v2/pkg/util"
 	"github.com/redhat-appstudio/e2e-tests/pkg/clients/has"
