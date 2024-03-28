@@ -364,6 +364,10 @@ func Untar(dst string, tarPath string) error {
 			}
 		// if it's a file create it
 		case tar.TypeReg:
+			dirPath := filepath.Dir(target)
+			if err := CreateDir(dirPath); err != nil {
+				return fmt.Errorf("error when create parent directories %s: %v", dirPath, err)
+			}
 			err = CreateFile(target, header, tr)
 			if err != nil {
 				return err
