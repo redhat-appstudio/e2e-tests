@@ -196,6 +196,34 @@ var _ = framework.IntegrationServiceSuiteDescribe("Integration Service E2E tests
 				}, timeout, interval).Should(Succeed(), fmt.Sprintf("timed out when waiting for SnapshotEnvironmentBinding to be created for application %s/%s", testNamespace, applicationName))
 			})
 		})
+
+		When("Multiple components are associated with an application and one is deleted", func() {
+			It("creates a new snapshot for remaining components", func() {
+				utils.WaitUntil(func() (done bool, err error) {
+					snapshotList, err := f.AsKubeAdmin.IntegrationController.ListAllSnapshots(testNamespace)
+					if err != nil {
+						return false, nil
+					}
+					return len(snapshotList.Items) == 1, nil
+				}, timeout)
+				componentName, _ := createComponent(*f, testNamespace, applicationName)
+				utils.WaitUntil(func() (done bool, err error) {
+					snapshotList, err := f.AsKubeAdmin.IntegrationController.ListAllSnapshots(testNamespace)
+					if err != nil {
+						return false, nil
+					}
+					return len(snapshotList.Items) == 2, nil
+				}, timeout)
+				Expect(f.AsKubeAdmin.HasController.DeleteComponent(componentName, testNamespace, false)).To(Succeed())
+				utils.WaitUntil(func() (done bool, err error) {
+					snapshotList, err := f.AsKubeAdmin.IntegrationController.ListAllSnapshots(testNamespace)
+					if err != nil {
+						return false, nil
+					}
+					return len(snapshotList.Items) == 3, nil
+				}, timeout)
+			})
+		})
 	})
 
 	Describe("with an integration test fail", Ordered, func() {
