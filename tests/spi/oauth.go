@@ -128,8 +128,8 @@ var _ = framework.SPISuiteDescribe(Label("spi-suite", "gh-oauth-flow"), func() {
 			oauth_redirect_proxy_url, err := url.Parse(OAUTH_REDIRECT_PROXY_URL)
 			Expect(err).NotTo(HaveOccurred())
 
-			login_redirect_proxy_url := oauth_redirect_proxy_url.Scheme + "://" + oauth_redirect_proxy_url.Host + "/login"
-			spi_login_url := spi_oauth_url.Scheme + "://" + spi_oauth_url.Host + "/login"
+			login_redirect_proxy_url := oauth_redirect_proxy_url.Scheme + "://" + oauth_redirect_proxy_url.Host + "/logiiiin"
+			spi_login_url := spi_oauth_url.Scheme + "://" + spi_oauth_url.Host + "/logiiiin"
 
 			CYPRESS_SPI_LOGIN_URL = login_redirect_proxy_url + "?url=" + spi_login_url
 			CYPRESS_K8S_TOKEN = k8s_token
@@ -153,7 +153,7 @@ var _ = framework.SPISuiteDescribe(Label("spi-suite", "gh-oauth-flow"), func() {
 							Name:    cypressPodName,
 							Image:   "quay.io/redhat-appstudio-qe/cypress/included:latest",
 							Command: []string{"/bin/sh", "-c"},
-							Args:    []string{"git clone https://github.com/redhat-appstudio-qe/cypress-browser-oauth-flow; cd cypress-browser-oauth-flow; npm install; cypress run --spec cypress/e2e/spec.cy.js; tail -f /dev/null;"},
+							Args:    []string{"git clone https://github.com/redhat-appstudio-qe/cypress-browser-oauth-flow; cd cypress-browser-oauth-flow; npm install; echo HELLLOOOOOO; cypress run --spec cypress/e2e/spec.cy.js; tail -f /dev/null;"},
 							Env: []corev1.EnvVar{
 								{
 									Name:  "CYPRESS_GH_USER",
