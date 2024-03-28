@@ -751,7 +751,7 @@ func createReleaseConfig(fw framework.Framework, managedNamespace, componentName
 
 	Expect(fw.AsKubeAdmin.TektonController.CreateOrUpdateSigningSecret(publicKey, "cosign-public-key", managedNamespace)).To(Succeed())
 
-	_, err = fw.AsKubeAdmin.ReleaseController.CreateReleasePlan("source-releaseplan", fw.UserNamespace, appName, managedNamespace, "")
+	_, err = fw.AsKubeAdmin.ReleaseController.CreateReleasePlan("source-releaseplan", fw.UserNamespace, appName, managedNamespace, "", nil)
 	Expect(err).NotTo(HaveOccurred())
 
 	defaultEcPolicy, err := fw.AsKubeAdmin.TektonController.GetEnterpriseContractPolicy("default", "enterprise-contract-service")

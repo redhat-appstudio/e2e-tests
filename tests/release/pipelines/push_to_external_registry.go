@@ -75,7 +75,7 @@ var _ = framework.ReleasePipelinesSuiteDescribe("Push to external registry", Lab
 
 		component = releasecommon.CreateComponentByCDQ(*fw, devNamespace, managedNamespace, releasecommon.ApplicationNameDefault, releasecommon.ComponentName, releasecommon.GitSourceComponentUrl)
 
-		_, err = fw.AsKubeAdmin.ReleaseController.CreateReleasePlan(releasecommon.SourceReleasePlanName, devNamespace, releasecommon.ApplicationNameDefault, managedNamespace, "")
+		_, err = fw.AsKubeAdmin.ReleaseController.CreateReleasePlan(releasecommon.SourceReleasePlanName, devNamespace, releasecommon.ApplicationNameDefault, managedNamespace, "", nil)
 		Expect(err).NotTo(HaveOccurred())
 
 		data, err := json.Marshal(map[string]interface{}{

@@ -15,7 +15,7 @@ import (
 )
 
 // CreateReleasePlan creates a new ReleasePlan using the given parameters.
-func (r *ReleaseController) CreateReleasePlan(name, namespace, application, targetNamespace, autoReleaseLabel string) (*releaseApi.ReleasePlan, error) {
+func (r *ReleaseController) CreateReleasePlan(name, namespace, application, targetNamespace, autoReleaseLabel string, data *runtime.RawExtension) (*releaseApi.ReleasePlan, error) {
 	var releasePlan *releaseApi.ReleasePlan = &releaseApi.ReleasePlan{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: name,
@@ -28,6 +28,7 @@ func (r *ReleaseController) CreateReleasePlan(name, namespace, application, targ
 		},
 		Spec: releaseApi.ReleasePlanSpec{
 			Application: application,
+			Data:        data,
 			Target:      targetNamespace,
 		},
 	}

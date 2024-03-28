@@ -40,7 +40,7 @@ var _ = framework.ReleaseServiceSuiteDescribe("ReleasePlan and ReleasePlanAdmiss
 		Expect(err).NotTo(HaveOccurred())
 
 		//Create ReleasePlan
-		_, err = fw.AsKubeAdmin.ReleaseController.CreateReleasePlan(releasecommon.SourceReleasePlanName, devNamespace, releasecommon.ApplicationNameDefault, managedNamespace, "true")
+		_, err = fw.AsKubeAdmin.ReleaseController.CreateReleasePlan(releasecommon.SourceReleasePlanName, devNamespace, releasecommon.ApplicationNameDefault, managedNamespace, "true", nil)
 		Expect(err).NotTo(HaveOccurred())
 	})
 
@@ -119,7 +119,7 @@ var _ = framework.ReleaseServiceSuiteDescribe("ReleasePlan and ReleasePlanAdmiss
 		})
 
 		It("Creates a manual release ReleasePlan CR in devNamespace", func() {
-			_, err = fw.AsKubeAdmin.ReleaseController.CreateReleasePlan(releasecommon.SecondReleasePlanName, devNamespace, releasecommon.ApplicationNameDefault, managedNamespace, "false")
+			_, err = fw.AsKubeAdmin.ReleaseController.CreateReleasePlan(releasecommon.SecondReleasePlanName, devNamespace, releasecommon.ApplicationNameDefault, managedNamespace, "false", nil)
 			Expect(err).NotTo(HaveOccurred())
 		})
 
