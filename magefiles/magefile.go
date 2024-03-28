@@ -170,7 +170,7 @@ func (Local) CleanupGithubOrg() error {
 		dayDuration, _ := time.ParseDuration("24h")
 		if time.Since(repo.GetCreatedAt().Time) > dayDuration {
 			// Add only repos matching the regex
-			if r.MatchString(*repo.Name) || *repo.Description == gitopsRepository {
+			if r.MatchString(repo.GetName()) || repo.GetDescription() == gitopsRepository {
 				reposToDelete = append(reposToDelete, repo)
 			}
 		}
