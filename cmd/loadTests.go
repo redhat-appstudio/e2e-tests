@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/devfile/library/v2/pkg/util"
 	"github.com/gosuri/uiprogress"
 	"github.com/gosuri/uitable/util/strutil"
 	metricsConstants "github.com/redhat-appstudio-qe/perf-monitoring/api/pkg/constants"
@@ -33,8 +34,188 @@ import (
 	"knative.dev/pkg/apis"
 )
 
+type UserAppsCompsMap struct {
+	mutex sync.RWMutex
+	Users map[string]*UserInfo
+}
+
+type UserInfo struct {
+	Framework    framework.Framework
+	Applications map[string]*AppInfo
+}
+
+type AppInfo struct {
+	Components               []string
+	IntegrationTestScenarios []string
+}
+
+// AddUser adds a new user to the map
+func (u *UserAppsCompsMap) AddUser(userName string) {
+	u.mutex.Lock()
+	defer u.mutex.Unlock()
+
+	u.Users[userName] = &UserInfo{}
+}
+
+// SetUserFramework sets given framework for the user
+func (u *UserAppsCompsMap) SetUserFramework(userName string, framework *framework.Framework) {
+	u.mutex.Lock()
+	defer u.mutex.Unlock()
+
+	userInfo, ok := u.Users[userName]
+	if !ok {
+		klog.Fatalf("Can not set framework for nonexistent user %s", userName)
+	}
+
+	userInfo.Framework = *framework
+}
+
+// AddApplication adds a new application to a user
+func (u *UserAppsCompsMap) AddApplication(userName, appName string) {
+	u.mutex.Lock()
+	defer u.mutex.Unlock()
+
+	// Ensure the user exists
+	userInfo, ok := u.Users[userName]
+	if !ok {
+		klog.Fatalf("Can not add application for nonexistent user %s", userName)
+	}
+
+	// Create the application entry if it doesn't exist
+	if userInfo.Applications == nil {
+		userInfo.Applications = make(map[string]*AppInfo)
+	}
+
+	// Add the application to the user's applications
+	userInfo.Applications[appName] = &AppInfo{}
+	klog.V(5).Infof("AddApplication added userName: %s, appName: %s", userName, appName)
+}
+
+// AddComponent adds a new component to a specific application for a user
+func (u *UserAppsCompsMap) AddComponent(userName, appName, compName string) {
+	u.mutex.Lock()
+	defer u.mutex.Unlock()
+
+	// Ensure the user exist
+	userInfo, ok := u.Users[userName]
+	if !ok {
+		klog.Fatalf("Can not add component for nonexistent user %s", userName)
+	}
+
+	// Ensure application exist
+	appInfo, ok := userInfo.Applications[appName]
+	if !ok {
+		klog.Fatalf("Can not add component for nonexistent application %s", appName)
+	}
+
+	// Add the component to the application's components list
+	appInfo.Components = append(appInfo.Components, compName)
+	klog.V(5).Infof("AddComponent added userName: %s, appName: %s, compName: %s", userName, appName, compName)
+}
+
+// AddIntegrationTestScenario adds a new ITS to a specific application for a user
+func (u *UserAppsCompsMap) AddIntegrationTestScenario(userName, appName, itsName string) {
+	u.mutex.Lock()
+	defer u.mutex.Unlock()
+
+	// Ensure the user exist
+	userInfo, ok := u.Users[userName]
+	if !ok {
+		klog.Fatalf("Can not add integration test scenario for nonexistent user %s", userName)
+	}
+
+	// Ensure application exist
+	appInfo, ok := userInfo.Applications[appName]
+	if !ok {
+		klog.Fatalf("Can not add integration test scenario for nonexistent application %s", appName)
+	}
+
+	// Add the integration test scenario to the application's components list
+	appInfo.IntegrationTestScenarios = append(appInfo.IntegrationTestScenarios, itsName)
+	klog.V(5).Infof("AddIntegrationTestScenario added userName: %s, appName: %s, itsName: %s", userName, appName, itsName)
+}
+
+// GetUsers retrieves list of users
+func (u *UserAppsCompsMap) GetUsers() []string {
+	u.mutex.RLock() // Use Read lock for retrieving data
+	defer u.mutex.RUnlock()
+
+	users := make([]string, 0, len(u.Users))
+	for user := range u.Users {
+		users = append(users, user)
+	}
+	return users
+}
+
+// GetUserFramework retrieves user framework
+func (u *UserAppsCompsMap) GetUserFramework(userName string) *framework.Framework {
+	u.mutex.RLock()
+	defer u.mutex.RUnlock()
+
+	userInfo, ok := u.Users[userName]
+	if !ok {
+		klog.Fatalln("Can not get framework for nonexistent application")
+	}
+
+	return &userInfo.Framework
+}
+
+// GetUserApps retrieves a list of applications for a specific user
+func (u *UserAppsCompsMap) GetUserApps(userName string) []string {
+	u.mutex.RLock()
+	defer u.mutex.RUnlock()
+
+	userInfo, ok := u.Users[userName]
+	if !ok {
+		klog.Fatalln("Can not get applications for nonexistent user")
+	}
+
+	apps := make([]string, 0, len(userInfo.Applications))
+	for app := range userInfo.Applications {
+		apps = append(apps, app)
+	}
+	return apps
+}
+
+// GetAppComps retrieves a list of components for specific user and application
+func (u *UserAppsCompsMap) GetAppComps(userName, appName string) []string {
+	u.mutex.RLock()
+	defer u.mutex.RUnlock()
+
+	userInfo, ok := u.Users[userName]
+	if !ok {
+		klog.Fatalln("Can not get components for nonexistent user")
+	}
+
+	appInfo, ok := userInfo.Applications[appName]
+	if !ok {
+		klog.Fatalln("Can not get components for nonexistent application")
+	}
+
+	return appInfo.Components
+}
+
+// GetIntegrationTestScenarios retrieves a list of components for specific user and application
+func (u *UserAppsCompsMap) GetIntegrationTestScenarios(userName, appName string) []string {
+	u.mutex.RLock()
+	defer u.mutex.RUnlock()
+
+	userInfo, ok := u.Users[userName]
+	if !ok {
+		klog.Fatalln("Can not get integration test scenarios for nonexistent user")
+	}
+
+	appInfo, ok := userInfo.Applications[appName]
+	if !ok {
+		klog.Fatalln("Can not get integration test scenarios for nonexistent application")
+	}
+
+	return appInfo.IntegrationTestScenarios
+}
+
 var (
 	componentRepoUrl              string = "https://github.com/devfile-samples/devfile-sample-code-with-quarkus"
+	componentsCount               int    = 1
 	usernamePrefix                string = "testuser"
 	numberOfUsers                 int
 	testScenarioGitURL            string = "https://github.com/redhat-appstudio/integration-examples.git"
@@ -101,10 +282,6 @@ var (
 	FailedDeploymentsPerThread                  []int64
 	FailedIntegrationTestsPipelineRunsPerThread []int64
 
-	frameworkMap                      *sync.Map
-	userComponentMap                  *sync.Map
-	userTestScenarioMap               *sync.Map
-	userComponentPipelineRunMap       *sync.Map
 	errorCountMap                     map[int]ErrorCount
 	errorMutex                        = &sync.Mutex{}
 	usersBarMutex                     = &sync.Mutex{}
@@ -140,6 +317,7 @@ type LogData struct {
 	MachineName                       string  `json:"machineName"`
 	BinaryDetails                     string  `json:"binaryDetails"`
 	ComponentRepoUrl                  string  `json:"componentRepoUrl"`
+	ComponentsCount                   int     `json:"componentsCount"`
 	NumberOfThreads                   int     `json:"threads"`
 	NumberOfUsersPerThread            int     `json:"usersPerThread"`
 	NumberOfUsers                     int     `json:"totalUsers"`
@@ -220,7 +398,9 @@ type JourneyContext struct {
 	ChPipelines                  chan string
 	ChIntegrationTestsPipelines  chan string
 	ChDeployments                chan string
+	userAppsCompsMap             UserAppsCompsMap
 }
+var journeyContexts []*JourneyContext   // pointers to all thread contexts
 
 func createLogDataJSON(outputFile string, logDataInput LogData) error {
 	jsonData, err := json.MarshalIndent(logDataInput, "", "  ")
@@ -262,21 +442,9 @@ func ExecuteLoadTest() {
 	}
 }
 
-// generate random string from charset = "abcdefghijklmnopqrstuvwxyz0123456789"
-// We shall use length = 5 characters length random string with 60,466,176 random combinations
-const customCharset = "abcdefghijklmnopqrstuvwxyz0123456789"
-
-func randomStringFromCharset(length int) string {
-	var result []byte
-	for i := 0; i < length; i++ {
-		index := rand.Intn(len(customCharset))
-		result = append(result, customCharset[index])
-	}
-	return string(result)
-}
-
 func init() {
 	rootCmd.Flags().StringVar(&componentRepoUrl, "component-repo", componentRepoUrl, "the component repo URL to be used")
+	rootCmd.Flags().IntVar(&componentsCount, "components-count", componentsCount, "number of components to create per application")
 	rootCmd.Flags().StringVar(&usernamePrefix, "username", usernamePrefix, "the prefix used for usersignup names")
 	rootCmd.Flags().BoolVarP(&verbose, "verbose", "v", false, "if 'debug' traces should be displayed in the console")
 	rootCmd.Flags().BoolVarP(&stage, "stage", "s", false, "is you want to run the test on stage")
@@ -354,6 +522,9 @@ func setup(cmd *cobra.Command, args []string) {
 	setKlogFlag(fs, "log_file", logFile.Name())
 	setKlogFlag(fs, "logtostderr", "false")
 	setKlogFlag(fs, "alsologtostderr", strconv.FormatBool(logConsole))
+	if verbose {
+		setKlogFlag(fs, "v", "5")
+	}
 
 	overallCount := numberOfUsers * threadCount
 
@@ -404,6 +575,7 @@ func setup(cmd *cobra.Command, args []string) {
 		MachineName:               machineName,
 		BinaryDetails:             binaryDetails,
 		ComponentRepoUrl:          componentRepoUrl,
+		ComponentsCount:           componentsCount,
 		NumberOfThreads:           threadCount,
 		NumberOfUsersPerThread:    numberOfUsers,
 		NumberOfUsers:             overallCount,
@@ -515,10 +687,6 @@ func setup(cmd *cobra.Command, args []string) {
 	FailedDeploymentsPerThread = make([]int64, threadCount)
 	FailedIntegrationTestsPipelineRunsPerThread = make([]int64, threadCount)
 
-	frameworkMap = &sync.Map{}
-	userComponentMap = &sync.Map{}
-	userTestScenarioMap = &sync.Map{}
-	userComponentPipelineRunMap = &sync.Map{}
 	errorCountMap = make(map[int]ErrorCount)
 
 	rand.Seed(time.Now().UnixNano())
@@ -528,7 +696,6 @@ func setup(cmd *cobra.Command, args []string) {
 	for threadIndex := 0; threadIndex < threadCount; threadIndex++ {
 		// Create a new context for each goroutine
 		threadCtx := &JourneyContext{
-			FrameworkMap:                 frameworkMap,
 			threadsWG:                    threadsWG,
 			innerThreadWG:                new(sync.WaitGroup),
 			ThreadIndex:                  threadIndex,
@@ -541,10 +708,12 @@ func setup(cmd *cobra.Command, args []string) {
 			IntegrationTestsPipelinesBar: IntegrationTestsPipelinesBar,
 			DeploymentsBar:               DeploymentsBar,
 			ChUsers:                      make(chan string, numberOfUsers),
-			ChPipelines:                  make(chan string, numberOfUsers),
-			ChIntegrationTestsPipelines:  make(chan string, numberOfUsers),
-			ChDeployments:                make(chan string, numberOfUsers),
+			ChPipelines:                  make(chan string, numberOfUsers*componentsCount),
+			ChIntegrationTestsPipelines:  make(chan string, numberOfUsers*componentsCount),
+			ChDeployments:                make(chan string, numberOfUsers*componentsCount),
+			userAppsCompsMap:             UserAppsCompsMap{mutex: sync.RWMutex{}, Users: make(map[string]*UserInfo)},
 		}
+		journeyContexts = append(journeyContexts, threadCtx)
 
 		go userJourneyThread(threadCtx)
 	}
@@ -730,7 +899,7 @@ func setup(cmd *cobra.Command, args []string) {
 	workloadKPI := logData.AverageTimeToCreateApplications + logData.AverageTimeToCreateCDQs + logData.AverageTimeToCreateComponents + logData.AverageTimeToRunPipelineSucceeded + logData.AverageTimeToDeploymentSucceeded
 	logData.WorkloadKPI = workloadKPI
 	if stage {
-		StageCleanup(selectedUsers)
+		StageCleanup(journeyContexts)
 	}
 
 	klog.Infof("🏁 Load Test Completed!")
@@ -781,18 +950,22 @@ func setup(cmd *cobra.Command, args []string) {
 	klog.Flush()
 }
 
-func StageCleanup(users []loadtestUtils.User) {
+func StageCleanup(journeyContexts []*JourneyContext) {
+	klog.V(5).Infof("StageCleanup start")
+	defer klog.V(5).Infof("StageCleanup end")
 
-	for _, user := range users {
-		framework := frameworkForUser(user.Username)
-		err := framework.AsKubeDeveloper.HasController.DeleteAllApplicationsInASpecificNamespace(framework.UserNamespace, 5*time.Minute)
-		if err != nil {
-			klog.Errorf("while deleting resources for user: %s, got error: %v\n", user.Username, err)
-		}
+	for _, journeyCtx := range journeyContexts {
+		for _, username := range journeyCtx.userAppsCompsMap.GetUsers() {
+			framework := journeyCtx.userAppsCompsMap.GetUserFramework(username)
+			err := framework.AsKubeDeveloper.HasController.DeleteAllApplicationsInASpecificNamespace(framework.UserNamespace, 5*time.Minute)
+			if err != nil {
+				klog.Errorf("while deleting resources for username: %s, got error: %v\n", username, err)
+			}
 
-		err = framework.AsKubeDeveloper.HasController.DeleteAllComponentDetectionQueriesInASpecificNamespace(framework.UserNamespace, 5*time.Minute)
-		if err != nil {
-			klog.Errorf("while deleting component detection queries for user: %s, got error: %v\n", user.Username, err)
+			err = framework.AsKubeDeveloper.HasController.DeleteAllComponentDetectionQueriesInASpecificNamespace(framework.UserNamespace, 5*time.Minute)
+			if err != nil {
+				klog.Errorf("while deleting component detection queries for username: %s, got error: %v\n", username, err)
+			}
 		}
 	}
 }
@@ -835,58 +1008,6 @@ func increaseBar(bar *uiprogress.Bar, mutex *sync.Mutex) {
 		defer mutex.Unlock()
 		bar.Incr()
 	}
-}
-
-func componentForUser(username string) string {
-	val, ok := userComponentMap.Load(username)
-	if ok {
-		componentName, ok2 := val.(string)
-		if ok2 {
-			return componentName
-		} else {
-			klog.Errorf("Invalid type of map value: %+v", val)
-		}
-	}
-	return ""
-}
-
-func frameworkForUser(username string) *framework.Framework {
-	val, ok := frameworkMap.Load(username)
-	if ok {
-		framework, ok2 := val.(*framework.Framework)
-		if ok2 {
-			return framework
-		} else {
-			klog.Errorf("Invalid type of map value: %+v", val)
-		}
-	}
-	return nil
-}
-
-func testScenarioForUser(username string) string {
-	val, ok := userTestScenarioMap.Load(username)
-	if ok {
-		testScenarioName, ok2 := val.(string)
-		if ok2 {
-			return testScenarioName
-		} else {
-			klog.Errorf("Invalid type of map value: %+v", val)
-		}
-	}
-	return ""
-}
-
-func userComponentPipelineRunForUser(username string) string {
-	val, ok := userComponentPipelineRunMap.Load(username)
-	if ok {
-		componentPipelineRunName, ok2 := val.(string)
-		if ok2 {
-			return componentPipelineRunName
-		} else {
-			klog.Errorf("Invalid type of map value: %+v", val)
-		}
-	}
-	return ""
 }
 
 func tryNewFramework(username string, user loadtestUtils.User, timeout time.Duration) (*framework.Framework, error) {
@@ -947,6 +1068,8 @@ type ConcreteHandlerUsers struct {
 
 func (h *ConcreteHandlerUsers) Handle(ctx *JourneyContext) {
 	go func() {
+		klog.V(5).Infof("ConcreteHandlerUsers thread start")
+		defer klog.V(5).Infof("ConcreteHandlerUsers thread end")
 		defer ctx.innerThreadWG.Done()
 
 		for userIndex := 1; userIndex <= numberOfUsers; userIndex++ {
@@ -955,7 +1078,7 @@ func (h *ConcreteHandlerUsers) Handle(ctx *JourneyContext) {
 			var username string
 			if randomString {
 				// Create a 5 characters wide random string to be added to username (https://issues.redhat.com/browse/RHTAP-1338)
-				randomStr := randomStringFromCharset(5)
+				randomStr := util.GenerateRandomString(5)
 				username = fmt.Sprintf("%s-%s-%04d", usernamePrefix, randomStr, ctx.ThreadIndex*numberOfUsers+userIndex)
 			} else {
 				username = fmt.Sprintf("%s-%04d", usernamePrefix, ctx.ThreadIndex*numberOfUsers+userIndex)
@@ -978,10 +1101,10 @@ func (h *ConcreteHandlerUsers) Handle(ctx *JourneyContext) {
 				increaseBar(ctx.AppStudioUsersBar, usersBarMutex)
 				continue
 			} else {
-				frameworkMap.Store(username, framework)
+				ctx.userAppsCompsMap.AddUser(username)
+				ctx.userAppsCompsMap.SetUserFramework(username, framework)
+				ctx.ChUsers <- username
 			}
-
-			ctx.ChUsers <- username
 
 			userCreationTime := time.Since(startTime)
 			UserCreationTimeSumPerThread[ctx.ThreadIndex] += userCreationTime
@@ -1009,10 +1132,12 @@ type ConcreteHandlerResources struct {
 
 func (h *ConcreteHandlerResources) Handle(ctx *JourneyContext) {
 	go func() {
+		klog.V(5).Infof("ConcreteHandlerResources thread start")
+		defer klog.V(5).Infof("ConcreteHandlerResources thread end")
 		defer ctx.innerThreadWG.Done()
 
 		for username := range ctx.ChUsers {
-			framework := frameworkForUser(username)
+			framework := ctx.userAppsCompsMap.GetUserFramework(username)
 			if framework == nil {
 				logError(2, fmt.Sprintf("Framework not found for username %s", username))
 				continue
@@ -1020,26 +1145,33 @@ func (h *ConcreteHandlerResources) Handle(ctx *JourneyContext) {
 			usernamespace := framework.UserNamespace
 
 			// Handle application creation and check for success
-			if !h.handleApplicationCreation(ctx, framework, username, usernamespace) {
-				// If application creation failed, continue with the next user
+			// Generate a random name with #combinations > 11M
+			// create unique resource names that adhere to RFC 1123 Label Names
+			// https://kubernetes.io/docs/concepts/overview/working-with-objects/names/
+			applicationName := fmt.Sprintf("%s-app-%s", username, util.GenerateRandomString(5))
+			if !h.handleApplicationCreation(ctx, framework, username, usernamespace, applicationName) {
+				// If Application creation failed, continue with the next user
 				continue
 			}
 
 			// Handle Integration Test Scenario Creation
-			if !h.handleIntegrationTestScenarioCreation(ctx, framework, username, usernamespace) {
+			// Generate a random name with #combinations > 11M
+			itsName := fmt.Sprintf("%s-its-%s", username, util.GenerateRandomString(5))
+			if !h.handleIntegrationTestScenarioCreation(ctx, framework, username, usernamespace, applicationName, itsName) {
 				// If its creation failed, continue with the next user
 				continue
 			}
 
 			// Handle Component Detection Query Creation
-			blnOK, cdq := h.handleCDQCreation(ctx, framework, username, usernamespace)
+			cdqName := fmt.Sprintf("%s-cdq-%s", username, util.GenerateRandomString(5))
+			blnOK, cdq := h.handleCDQCreation(ctx, framework, username, usernamespace, applicationName, cdqName)
 			if !blnOK {
 				// If CDQ creation failed, continue with the next user
 				continue
 			}
 
 			// Handle Component Creation
-			if !h.handleComponentCreation(ctx, framework, username, usernamespace, cdq) {
+			if !h.handleComponentCreation(ctx, framework, username, usernamespace, applicationName, cdq) {
 				// If Component creation failed, continue with the next user
 				continue
 			}
@@ -1053,13 +1185,15 @@ func (h *ConcreteHandlerResources) Handle(ctx *JourneyContext) {
 	}
 }
 
-func (h *ConcreteHandlerResources) handleApplicationCreation(ctx *JourneyContext, framework *framework.Framework, username, usernamespace string) bool {
-	ApplicationName := fmt.Sprintf("%s-app", username)
+func (h *ConcreteHandlerResources) handleApplicationCreation(ctx *JourneyContext, framework *framework.Framework, username, usernamespace, applicationName string) bool {
+	klog.V(5).Infof("handleApplicationCreation start username: %s, usernamespace: %s, applicationName: %s", username, usernamespace, applicationName)
+	defer klog.V(5).Infof("handleApplicationCreation end username: %s, usernamespace: %s, applicationName: %s", username, usernamespace, applicationName)
+
 	startTimeForApplication := time.Now()
-	_, err := framework.AsKubeDeveloper.HasController.CreateApplicationWithTimeout(ApplicationName, usernamespace, 60*time.Minute)
+	_, err := framework.AsKubeDeveloper.HasController.CreateApplicationWithTimeout(applicationName, usernamespace, 60*time.Minute)
 	applicationCreationTime := time.Since(startTimeForApplication)
 	if err != nil {
-		logError(3, fmt.Sprintf("Unable to create the Application %s: %v", ApplicationName, err))
+		logError(3, fmt.Sprintf("Unable to create the Application %s: %v", applicationName, err))
 		FailedApplicationCreationsPerThread[ctx.ThreadIndex] += 1
 		MetricsWrapper(MetricsController, metricsConstants.CollectorApplications, metricsConstants.MetricTypeCounter, metricsConstants.MetricFailedApplicationCreationCounter)
 		increaseBar(ctx.ApplicationsBar, applicationsBarMutex)
@@ -1072,7 +1206,7 @@ func (h *ConcreteHandlerResources) handleApplicationCreation(ctx *JourneyContext
 		ApplicationCreationTimeMaxPerThread[ctx.ThreadIndex] = applicationCreationTime
 	}
 
-	return h.validateApplicationCreation(ctx, framework, ApplicationName, username, usernamespace, applicationCreationTime)
+	return h.validateApplicationCreation(ctx, framework, applicationName, username, usernamespace, applicationCreationTime)
 }
 
 func isConditionError(condition metav1.Condition) bool {
@@ -1094,18 +1228,21 @@ type SuccessHandler interface {
 	HandleSuccess(ctx *JourneyContext, name string, timeInSeconds float64)
 }
 
-type ApplicationSuccessHandler struct{}
-
-func (h ApplicationSuccessHandler) HandleSuccess(ctx *JourneyContext, appName string, timeInSeconds float64) {
-	handleApplicationSuccess(ctx, appName, timeInSeconds)
-}
-
-type ItsSuccessHandler struct {
+type ApplicationSuccessHandler struct {
 	Username string
 }
 
+func (h ApplicationSuccessHandler) HandleSuccess(ctx *JourneyContext, appName string, timeInSeconds float64) {
+	handleApplicationSuccess(ctx, h.Username, appName, timeInSeconds)
+}
+
+type ItsSuccessHandler struct {
+	Username    string
+	Application string
+}
+
 func (h ItsSuccessHandler) HandleSuccess(ctx *JourneyContext, itsName string, timeInSeconds float64) {
-	handleItsSuccess(ctx, itsName, h.Username, timeInSeconds)
+	handleItsSuccess(ctx, itsName, h.Username, h.Application, timeInSeconds)
 }
 
 type CdqSuccessHandler struct{}
@@ -1115,14 +1252,18 @@ func (h CdqSuccessHandler) HandleSuccess(ctx *JourneyContext, cdqName string, ti
 }
 
 type ComponentSuccessHandler struct {
-	Username string
+	Username    string
+	Application string
 }
 
 func (h ComponentSuccessHandler) HandleSuccess(ctx *JourneyContext, componentName string, timeInSeconds float64) {
-	handleComponentSuccess(ctx, h.Username, componentName, timeInSeconds)
+	handleComponentSuccess(ctx, h.Username, h.Application, componentName, timeInSeconds)
 }
 
 func handleCondition(condition metav1.Condition, ctx *JourneyContext, name string, creationDetails CreationDetails, conditionDetails ConditionDetails, successHandler SuccessHandler) (bool, error) {
+	klog.V(5).Infof("handleCondition start name: %s, creationDetails: %s, conditionDetails: %s, condition: %v", name, creationDetails, conditionDetails, condition)
+	defer klog.V(5).Infof("handleCondition end name: %s, creationDetails: %s, conditionDetails: %s, condition: %v", name, creationDetails, conditionDetails, condition)
+
 	if condition.Type == conditionDetails.Type && condition.Status == conditionDetails.Status {
 		actualCreationTimeInSeconds := CalculateActualCreationTimeInSeconds(condition.LastTransitionTime.Time, creationDetails.Timestamp, creationDetails.Duration)
 		successHandler.HandleSuccess(ctx, name, actualCreationTimeInSeconds)
@@ -1136,20 +1277,21 @@ func handleCondition(condition metav1.Condition, ctx *JourneyContext, name strin
 	return false, nil
 }
 
-func (h *ConcreteHandlerResources) validateApplicationCreation(ctx *JourneyContext, framework *framework.Framework, ApplicationName, username, usernamespace string, applicationCreationTime time.Duration) bool {
+func (h *ConcreteHandlerResources) validateApplicationCreation(ctx *JourneyContext, framework *framework.Framework, applicationName, username, usernamespace string, applicationCreationTime time.Duration) bool {
 	applicationValidationInterval := time.Second * 20
 	applicationValidationTimeout := time.Minute * 15
 	var conditionError error
+	var app *appstudioApi.Application
 
 	err := utils.WaitUntilWithInterval(func() (done bool, err error) {
-		app, err := framework.AsKubeDeveloper.HasController.GetApplication(ApplicationName, usernamespace)
+		app, err = framework.AsKubeDeveloper.HasController.GetApplication(applicationName, usernamespace)
 		if err != nil {
-			return false, fmt.Errorf("unable to get created application %s in namespace %s: %v", ApplicationName, usernamespace, err)
+			return false, fmt.Errorf("unable to get created application %s in namespace %s: %v", applicationName, usernamespace, err)
 		}
 
 		conditionError = nil
 		if len(app.Status.Conditions) == 0 {
-			conditionError = fmt.Errorf("application %s has 0 status conditions", ApplicationName)
+			conditionError = fmt.Errorf("application %s has 0 status conditions", applicationName)
 			return false, nil
 		}
 
@@ -1164,7 +1306,7 @@ func (h *ConcreteHandlerResources) validateApplicationCreation(ctx *JourneyConte
 		}
 
 		for _, condition := range app.Status.Conditions {
-			done, err := handleCondition(condition, ctx, ApplicationName, creationDetails, conditionDetails, ApplicationSuccessHandler{})
+			done, err := handleCondition(condition, ctx, applicationName, creationDetails, conditionDetails, ApplicationSuccessHandler{Username: username})
 			if done || err != nil {
 				return done, err
 			}
@@ -1173,61 +1315,61 @@ func (h *ConcreteHandlerResources) validateApplicationCreation(ctx *JourneyConte
 	}, applicationValidationInterval, applicationValidationTimeout)
 
 	if err != nil || conditionError != nil {
-		handleApplicationFailure(ctx, ApplicationName, username, err, conditionError)
+		handleApplicationFailure(ctx, applicationName, username, err, conditionError)
 		return false
 	}
 
 	return true
 }
 
-func handleApplicationSuccess(ctx *JourneyContext, ApplicationName string, applicationActualCreationTimeInSeconds float64) {
-	klog.Infof("Successfully created Application %s", ApplicationName)
+func handleApplicationSuccess(ctx *JourneyContext, username, applicationName string, applicationActualCreationTimeInSeconds float64) {
+	klog.Infof("Successfully created Application %s", applicationName)
 	MetricsWrapper(MetricsController, metricsConstants.CollectorApplications, metricsConstants.MetricTypeGuage, metricsConstants.MetricActualApplicationCreationTimeGauge, applicationActualCreationTimeInSeconds)
 	SuccessfulApplicationCreationsPerThread[ctx.ThreadIndex] += 1
 	MetricsWrapper(MetricsController, metricsConstants.CollectorApplications, metricsConstants.MetricTypeCounter, metricsConstants.MetricSuccessfulApplicationCreationCounter)
 	increaseBar(ctx.ApplicationsBar, applicationsBarMutex)
+	ctx.userAppsCompsMap.AddApplication(username, applicationName)
 }
 
-func handleApplicationFailure(ctx *JourneyContext, ApplicationName string, username string, err error, conditionError error) {
-	klog.Infof("Failed creating Application %s", ApplicationName)
+func handleApplicationFailure(ctx *JourneyContext, applicationName string, username string, err error, conditionError error) {
+	klog.Infof("Failed creating Application %s", applicationName)
 	if err != nil {
 		// Handle direct errors
-		logError(4, fmt.Sprintf("Failed to validate Application %s for username %s due to an error: %v", ApplicationName, username, err))
+		logError(4, fmt.Sprintf("Failed to validate Application %s for username %s due to an error: %v", applicationName, username, err))
 		FailedApplicationCreationsPerThread[ctx.ThreadIndex] += 1
 		MetricsWrapper(MetricsController, metricsConstants.CollectorApplications, metricsConstants.MetricTypeCounter, metricsConstants.MetricFailedApplicationCreationCounter)
 		increaseBar(ctx.ApplicationsBar, applicationsBarMutex)
 	} else if conditionError != nil {
 		// Handle condition errors (e.g., timeouts or other conditions)
-		logError(5, fmt.Sprintf("Failed to validate Application %s for username %s due to an error: %v", ApplicationName, username, conditionError.Error()))
+		logError(5, fmt.Sprintf("Failed to validate Application %s for username %s due to an error: %v", applicationName, username, conditionError.Error()))
 		FailedApplicationCreationsPerThread[ctx.ThreadIndex] += 1
 		MetricsWrapper(MetricsController, metricsConstants.CollectorApplications, metricsConstants.MetricTypeCounter, metricsConstants.MetricFailedApplicationCreationCounter)
 		increaseBar(ctx.ApplicationsBar, applicationsBarMutex)
 	}
 }
 
-func (h *ConcreteHandlerResources) handleIntegrationTestScenarioCreation(ctx *JourneyContext, framework *framework.Framework, username, usernamespace string) bool {
-	var integrationTestScenario *integrationv1beta1.IntegrationTestScenario
+func (h *ConcreteHandlerResources) handleIntegrationTestScenarioCreation(ctx *JourneyContext, framework *framework.Framework, username, usernamespace, applicationName, itsName string) bool {
+	klog.V(5).Infof("handleIntegrationTestScenarioCreation start username: %s, usernamespace: %s, applicationName: %s, itsName: %s", username, usernamespace, applicationName, itsName)
+	defer klog.V(5).Infof("handleIntegrationTestScenarioCreation end username: %s, usernamespace: %s, applicationName: %s, itsName: %s", username, usernamespace, applicationName, itsName)
 
-	ApplicationName := fmt.Sprintf("%s-app", username)
 	startTimeForIts := time.Now()
-	integrationTestScenario, err := framework.AsKubeDeveloper.IntegrationController.CreateIntegrationTestScenario(ApplicationName, usernamespace, testScenarioGitURL, testScenarioRevision, testScenarioPathInRepo)
+	_, err := framework.AsKubeDeveloper.IntegrationController.CreateIntegrationTestScenarioV2(itsName, applicationName, usernamespace, testScenarioGitURL, testScenarioRevision, testScenarioPathInRepo)
 	itsCreationTime := time.Since(startTimeForIts)
 	if err != nil {
-		logError(6, fmt.Sprintf("Unable to create integrationTestScenario for Application %s: %v \n", ApplicationName, err))
+		logError(6, fmt.Sprintf("Unable to create integrationTestScenario for Application %s: %v \n", applicationName, err))
 		FailedItsCreationsPerThread[ctx.ThreadIndex] += 1
 		MetricsWrapper(MetricsController, metricsConstants.CollectorIntegrationTestsSC, metricsConstants.MetricTypeCounter, metricsConstants.MetricFailedIntegrationTestSenarioCreationCounter)
 		increaseBar(ctx.ItsBar, itsBarMutex)
 		return false
 	}
 
-	itsName := integrationTestScenario.Name
 	ItsCreationTimeSumPerThread[ctx.ThreadIndex] += itsCreationTime
 	MetricsWrapper(MetricsController, metricsConstants.CollectorIntegrationTestsSC, metricsConstants.MetricTypeGuage, metricsConstants.MetricIntegrationTestSenarioCreationTimeGauge, itsCreationTime.Seconds())
 	if itsCreationTime > ItsCreationTimeMaxPerThread[ctx.ThreadIndex] {
 		ItsCreationTimeMaxPerThread[ctx.ThreadIndex] = itsCreationTime
 	}
 
-	return h.validateIntegrationTestScenario(ctx, framework, itsName, ApplicationName, username, usernamespace, itsCreationTime)
+	return h.validateIntegrationTestScenarioCreation(ctx, framework, itsName, applicationName, username, usernamespace, itsCreationTime)
 }
 
 func findTestScenarioByName(scenarios []integrationv1beta1.IntegrationTestScenario, name string) *integrationv1beta1.IntegrationTestScenario {
@@ -1239,16 +1381,19 @@ func findTestScenarioByName(scenarios []integrationv1beta1.IntegrationTestScenar
 	return nil // Return nil if no matching scenario is found
 }
 
-func (h *ConcreteHandlerResources) validateIntegrationTestScenario(ctx *JourneyContext, framework *framework.Framework, itsName, ApplicationName, username, usernamespace string, itsCreationTime time.Duration) bool {
+func (h *ConcreteHandlerResources) validateIntegrationTestScenarioCreation(ctx *JourneyContext, framework *framework.Framework, itsName, applicationName, username, usernamespace string, itsCreationTime time.Duration) bool {
+	klog.V(5).Infof("validateIntegrationTestScenarioCreation start username: %s, usernamespace: %s, applicationName: %s, itsName: %s", username, usernamespace, applicationName, itsName)
+	defer klog.V(5).Infof("validateIntegrationTestScenarioCreation end username: %s, usernamespace: %s, applicationName: %s, itsName: %s", username, usernamespace, applicationName, itsName)
+
 	integrationTestScenarioRepoInterval := time.Second * 20
 	integrationTestScenarioValidationTimeout := time.Minute * 30
 	var conditionError error
 
 	err := utils.WaitUntilWithInterval(func() (done bool, err error) {
-		integrationTestScenarios, err := framework.AsKubeDeveloper.IntegrationController.GetIntegrationTestScenarios(ApplicationName, usernamespace)
+		integrationTestScenarios, err := framework.AsKubeDeveloper.IntegrationController.GetIntegrationTestScenarios(applicationName, usernamespace)
 		if err != nil {
 			// Return an error immediately if we cannot fetch the scenarios
-			return false, fmt.Errorf("unable to get created integrationTestScenario for Application %s: %v", ApplicationName, err)
+			return false, fmt.Errorf("unable to get created integrationTestScenario for Application %s: %v", applicationName, err)
 		}
 
 		conditionError = nil // Reset the condition error
@@ -1272,8 +1417,7 @@ func (h *ConcreteHandlerResources) validateIntegrationTestScenario(ctx *JourneyC
 			}
 
 			for _, condition := range testScenario.Status.Conditions {
-				done, err := handleCondition(condition, ctx, itsName, creationDetails, conditionDetails, ItsSuccessHandler{Username: username})
-
+				done, err := handleCondition(condition, ctx, itsName, creationDetails, conditionDetails, ItsSuccessHandler{Username: username, Application: applicationName})
 				if done || err != nil {
 					return done, err
 				}
@@ -1283,19 +1427,19 @@ func (h *ConcreteHandlerResources) validateIntegrationTestScenario(ctx *JourneyC
 	}, integrationTestScenarioRepoInterval, integrationTestScenarioValidationTimeout)
 
 	if err != nil || conditionError != nil {
-		handleItsFailure(ctx, ApplicationName, err, conditionError)
+		handleItsFailure(ctx, applicationName, err, conditionError)
 		return false
 	}
 	return true
 }
 
-func handleItsSuccess(ctx *JourneyContext, itsName, username string, itsActualCreationTimeInSeconds float64) {
+func handleItsSuccess(ctx *JourneyContext, itsName, username string, applicationName string, itsActualCreationTimeInSeconds float64) {
 	klog.Infof("Successfully created Integration Test Scenario %s", itsName)
 	MetricsWrapper(MetricsController, metricsConstants.CollectorIntegrationTestsSC, metricsConstants.MetricTypeGuage, metricsConstants.MetricActualIntegrationTestSenarioCreationTimeGauge, itsActualCreationTimeInSeconds)
 	SuccessfulItsCreationsPerThread[ctx.ThreadIndex] += 1
 	MetricsWrapper(MetricsController, metricsConstants.CollectorIntegrationTestsSC, metricsConstants.MetricTypeCounter, metricsConstants.MetricSuccessfulIntegrationTestSenarioCreationCounter)
 	increaseBar(ctx.ItsBar, itsBarMutex)
-	userTestScenarioMap.Store(username, itsName)
+	ctx.userAppsCompsMap.AddIntegrationTestScenario(username, applicationName, itsName)
 }
 
 func handleItsFailure(ctx *JourneyContext, applicationName string, err, conditionError error) {
@@ -1310,29 +1454,30 @@ func handleItsFailure(ctx *JourneyContext, applicationName string, err, conditio
 	increaseBar(ctx.ItsBar, itsBarMutex)
 }
 
-func (h *ConcreteHandlerResources) handleCDQCreation(ctx *JourneyContext, framework *framework.Framework, username, usernamespace string) (bool, *appstudioApi.ComponentDetectionQuery) {
-	ApplicationName := fmt.Sprintf("%s-app", username)
-	ComponentDetectionQueryName := fmt.Sprintf("%s-cdq", username)
+func (h *ConcreteHandlerResources) handleCDQCreation(ctx *JourneyContext, framework *framework.Framework, username, usernamespace, applicationName, cdqName string) (bool, *appstudioApi.ComponentDetectionQuery) {
+	klog.V(5).Infof("handleCDQCreation start username: %s, usernamespace: %s, applicationName: %s", username, usernamespace, applicationName)
+	defer klog.V(5).Infof("handleCDQCreation end username: %s, usernamespace: %s, applicationName: %s", username, usernamespace, applicationName)
+
 	startTimeForCDQ := time.Now()
-	cdq, err := framework.AsKubeDeveloper.HasController.CreateComponentDetectionQueryWithTimeout(ComponentDetectionQueryName, usernamespace, componentRepoUrl, "", "", "", false, 60*time.Minute)
+	cdq, err := framework.AsKubeDeveloper.HasController.CreateComponentDetectionQueryWithTimeout(cdqName, usernamespace, componentRepoUrl, "", "", "", false, 60*time.Minute)
 	cdqCreationTime := time.Since(startTimeForCDQ)
 
 	if err != nil {
-		logError(9, fmt.Sprintf("Unable to create ComponentDetectionQuery %s: %v", ComponentDetectionQueryName, err))
+		logError(9, fmt.Sprintf("Unable to create ComponentDetectionQuery %s: %v", cdqName, err))
 		FailedCDQCreationsPerThread[ctx.ThreadIndex] += 1
 		MetricsWrapper(MetricsController, metricsConstants.CollectorCDQ, metricsConstants.MetricTypeCounter, metricsConstants.MetricFailedCDQCreationCounter)
 		increaseBar(ctx.CDQsBar, cdqsBarMutex)
 		return false, nil
 	}
-	if cdq.Name != ComponentDetectionQueryName {
-		logError(10, fmt.Sprintf("Actual cdq name (%s) does not match expected (%s): %v", cdq.Name, ComponentDetectionQueryName, err))
+	if cdq.Name != cdqName {
+		logError(10, fmt.Sprintf("Actual cdq name (%s) does not match expected (%s): %v", cdq.Name, cdqName, err))
 		FailedCDQCreationsPerThread[ctx.ThreadIndex] += 1
 		MetricsWrapper(MetricsController, metricsConstants.CollectorCDQ, metricsConstants.MetricTypeCounter, metricsConstants.MetricFailedCDQCreationCounter)
 		increaseBar(ctx.CDQsBar, cdqsBarMutex)
 		return false, nil
 	}
-	if len(cdq.Status.ComponentDetected) > 1 {
-		logError(11, fmt.Sprintf("cdq (%s) detected more than 1 component", cdq.Name))
+	if len(cdq.Status.ComponentDetected) == 0 {
+		logError(11, fmt.Sprintf("cdq (%s) detected no component", cdq.Name))
 		FailedCDQCreationsPerThread[ctx.ThreadIndex] += 1
 		MetricsWrapper(MetricsController, metricsConstants.CollectorCDQ, metricsConstants.MetricTypeCounter, metricsConstants.MetricFailedCDQCreationCounter)
 		increaseBar(ctx.CDQsBar, cdqsBarMutex)
@@ -1345,26 +1490,26 @@ func (h *ConcreteHandlerResources) handleCDQCreation(ctx *JourneyContext, framew
 		CDQCreationTimeMaxPerThread[ctx.ThreadIndex] = cdqCreationTime
 	}
 
-	return h.validateCDQ(ctx, framework, ComponentDetectionQueryName, ApplicationName, username, usernamespace, cdqCreationTime)
+	return h.validateCDQCreation(ctx, framework, cdqName, applicationName, username, usernamespace, cdqCreationTime)
 }
 
-func (h *ConcreteHandlerResources) validateCDQ(ctx *JourneyContext, framework *framework.Framework, CDQName, ApplicationName, username, usernamespace string, cdqCreationTime time.Duration) (bool, *appstudioApi.ComponentDetectionQuery) {
+func (h *ConcreteHandlerResources) validateCDQCreation(ctx *JourneyContext, framework *framework.Framework, cdqName, applicationName, username, usernamespace string, cdqCreationTime time.Duration) (bool, *appstudioApi.ComponentDetectionQuery) {
 	cdqValidationInterval := time.Second * 20
 	cdqValidationTimeout := time.Minute * 30
 	var conditionError error
 	var cdq *appstudioApi.ComponentDetectionQuery
 
 	err := utils.WaitUntilWithInterval(func() (done bool, err error) {
-		cdq, err = framework.AsKubeDeveloper.HasController.GetComponentDetectionQuery(CDQName, usernamespace)
+		cdq, err = framework.AsKubeDeveloper.HasController.GetComponentDetectionQuery(cdqName, usernamespace)
 		if err != nil {
 			// Return an error immediately if we cannot fetch the cdq
-			return false, fmt.Errorf("unable to get created cdq %s in namespace %s: %v", CDQName, usernamespace, err)
+			return false, fmt.Errorf("unable to get created cdq %s in namespace %s: %v", cdqName, usernamespace, err)
 		}
 
 		conditionError = nil // Reset the condition error
 		if len(cdq.Status.Conditions) == 0 {
 			// store the error in conditionError
-			conditionError = fmt.Errorf("cdq %s has 0 status conditions", CDQName)
+			conditionError = fmt.Errorf("cdq %s has 0 status conditions", cdqName)
 			return false, nil // Continue polling
 		}
 		creationTimestamp := cdq.ObjectMeta.CreationTimestamp.Time
@@ -1380,7 +1525,7 @@ func (h *ConcreteHandlerResources) validateCDQ(ctx *JourneyContext, framework *f
 		}
 
 		for _, condition := range cdq.Status.Conditions {
-			done, err := handleCondition(condition, ctx, CDQName, creationDetails, conditionDetails, CdqSuccessHandler{})
+			done, err := handleCondition(condition, ctx, cdqName, creationDetails, conditionDetails, CdqSuccessHandler{})
 			if done || err != nil {
 				return done, err
 			}
@@ -1389,14 +1534,14 @@ func (h *ConcreteHandlerResources) validateCDQ(ctx *JourneyContext, framework *f
 	}, cdqValidationInterval, cdqValidationTimeout)
 
 	if err != nil || conditionError != nil {
-		handleCdqFailure(ctx, ApplicationName, err, conditionError)
+		handleCdqFailure(ctx, applicationName, err, conditionError)
 		return false, nil
 	}
 	return true, cdq
 }
 
-func handleCdqSuccess(ctx *JourneyContext, CDQName string, cdqActualCreationTimeInSeconds float64) {
-	klog.Infof("Successfully created CDQ %s", CDQName)
+func handleCdqSuccess(ctx *JourneyContext, cdqName string, cdqActualCreationTimeInSeconds float64) {
+	klog.Infof("Successfully created CDQ %s", cdqName)
 	MetricsWrapper(MetricsController, metricsConstants.CollectorCDQ, metricsConstants.MetricTypeGuage, metricsConstants.MetricActualCDQCreationTimeGauge, cdqActualCreationTimeInSeconds)
 	SuccessfulCDQCreationsPerThread[ctx.ThreadIndex] += 1
 	MetricsWrapper(MetricsController, metricsConstants.CollectorCDQ, metricsConstants.MetricTypeCounter, metricsConstants.MetricSuccessfulCDQCreationCounter)
@@ -1415,54 +1560,69 @@ func handleCdqFailure(ctx *JourneyContext, applicationName string, err, conditio
 	increaseBar(ctx.CDQsBar, cdqsBarMutex)
 }
 
-func (h *ConcreteHandlerResources) handleComponentCreation(ctx *JourneyContext, framework *framework.Framework, username, usernamespace string, cdq *appstudioApi.ComponentDetectionQuery) bool {
+func (h *ConcreteHandlerResources) handleComponentCreation(ctx *JourneyContext, framework *framework.Framework, username, usernamespace, applicationName string, cdq *appstudioApi.ComponentDetectionQuery) bool {
+	klog.V(5).Infof("handleComponentCreation start username: %s, usernamespace: %s, applicationName: %s", username, usernamespace, applicationName)
+	defer klog.V(5).Infof("handleComponentCreation end username: %s, usernamespace: %s, applicationName: %s", username, usernamespace, applicationName)
+
 	var (
-		componentName         string
 		startTimeForComponent time.Time
 		componentCreationTime time.Duration
-		shouldContinue        bool
-		ApplicationName       = fmt.Sprintf("%s-app", username)
+		compStub              appstudioApi.ComponentDetectionDescription
 	)
 
+	compStubs := make([]appstudioApi.ComponentDetectionDescription, 0, len(cdq.Status.ComponentDetected))
 	for _, compStub := range cdq.Status.ComponentDetected {
+		compStubs = append(compStubs, compStub)
+	}
+
+	for i := 0; i < componentsCount; i++ {
+		if i < len(compStubs) {
+			compStub = compStubs[i]
+		} else {
+			compStub = compStubs[len(cdq.Status.ComponentDetected)-1]
+		}
 		startTimeForComponent = time.Now()
-		component, err := framework.AsKubeDeveloper.HasController.CreateComponent(compStub.ComponentStub, usernamespace, "", "", ApplicationName, pipelineSkipInitialChecks, map[string]string{})
+		innerComponentName := fmt.Sprintf("%s-comp-%d", applicationName, i)
+		compStub.ComponentStub.ComponentName = innerComponentName
+		component, err := framework.AsKubeDeveloper.HasController.CreateComponent(compStub.ComponentStub, usernamespace, "", "", applicationName, pipelineSkipInitialChecks, map[string]string{})
 		componentCreationTime = time.Since(startTimeForComponent)
 
 		if err != nil {
-			logError(14, fmt.Sprintf("Unable to create the Component %s: %v", compStub.ComponentStub.ComponentName, err))
+			logError(14, fmt.Sprintf("Unable to create the Component %s: %v", innerComponentName, err))
 			FailedComponentCreationsPerThread[ctx.ThreadIndex] += 1
 			MetricsWrapper(MetricsController, metricsConstants.CollectorComponents, metricsConstants.MetricTypeCounter, metricsConstants.MetricFailedComponentCreationCounter)
 			increaseBar(ctx.ComponentsBar, componentsBarMutex)
-			shouldContinue = true
-			break // Exit the inner loop
+			return false
 		}
-		if component.Name != compStub.ComponentStub.ComponentName {
-			logError(15, fmt.Sprintf("Actual component name (%s) does not match expected (%s): %v", component.Name, compStub.ComponentStub.ComponentName, err))
+		if component.Name != innerComponentName {
+			logError(15, fmt.Sprintf("Actual component name (%s) does not match expected (%s): %v", component.Name, innerComponentName, err))
 			FailedComponentCreationsPerThread[ctx.ThreadIndex] += 1
 			MetricsWrapper(MetricsController, metricsConstants.CollectorComponents, metricsConstants.MetricTypeCounter, metricsConstants.MetricFailedComponentCreationCounter)
 			increaseBar(ctx.ComponentsBar, componentsBarMutex)
-			shouldContinue = true
-			break // Exit the inner loop
+			return false
 		}
-		componentName = component.Name
 
 		ComponentCreationTimeSumPerThread[ctx.ThreadIndex] += componentCreationTime
 		MetricsWrapper(MetricsController, metricsConstants.CollectorComponents, metricsConstants.MetricTypeGuage, metricsConstants.MetricComponentCreationTimeGauge, componentCreationTime.Seconds())
 		if componentCreationTime > ComponentCreationTimeMaxPerThread[ctx.ThreadIndex] {
 			ComponentCreationTimeMaxPerThread[ctx.ThreadIndex] = componentCreationTime
 		}
+
+		validated := h.validateComponent(ctx, framework, component.Name, applicationName, username, usernamespace, componentCreationTime)
+		if !validated {
+			logError(30, fmt.Sprintf("Validation of component name (%s) failed with: %v", component.Name, err))
+			return false
+		}
 	}
 
-	// handleComponentCreation failed
-	if shouldContinue {
-		return false
-	}
-
-	return h.validateComponent(ctx, framework, componentName, ApplicationName, username, usernamespace, componentCreationTime)
+	ctx.ChPipelines <- username
+	return true
 }
 
-func (h *ConcreteHandlerResources) validateComponent(ctx *JourneyContext, framework *framework.Framework, componentName, ApplicationName, username, usernamespace string, componentCreationTime time.Duration) bool {
+func (h *ConcreteHandlerResources) validateComponent(ctx *JourneyContext, framework *framework.Framework, componentName, applicationName, username, usernamespace string, componentCreationTime time.Duration) bool {
+	klog.V(5).Infof("validateComponent start username: %s, usernamespace: %s, applicationName: %s, componentName: %s", username, usernamespace, applicationName, componentName)
+	defer klog.V(5).Infof("validateComponent end username: %s, usernamespace: %s, applicationName: %s, componentName: %s", username, usernamespace, applicationName, componentName)
+
 	componentValidationInterval := time.Second * 20
 	componentValidationTimeout := time.Minute * 30
 	var conditionError error
@@ -1493,7 +1653,7 @@ func (h *ConcreteHandlerResources) validateComponent(ctx *JourneyContext, framew
 		}
 
 		for _, condition := range component.Status.Conditions {
-			done, err := handleCondition(condition, ctx, componentName, creationDetails, conditionDetails, ComponentSuccessHandler{Username: username})
+			done, err := handleCondition(condition, ctx, componentName, creationDetails, conditionDetails, ComponentSuccessHandler{Username: username, Application: applicationName})
 			if done || err != nil {
 				return done, err
 			}
@@ -1502,20 +1662,20 @@ func (h *ConcreteHandlerResources) validateComponent(ctx *JourneyContext, framew
 	}, componentValidationInterval, componentValidationTimeout)
 
 	if err != nil || conditionError != nil {
-		handleComponentFailure(ctx, ApplicationName, err, conditionError)
+		handleComponentFailure(ctx, applicationName, err, conditionError)
 		return false
 	}
+
 	return true
 }
 
-func handleComponentSuccess(ctx *JourneyContext, username, componentName string, componentActualCreationTimeInSeconds float64) {
+func handleComponentSuccess(ctx *JourneyContext, username, applicationName, componentName string, componentActualCreationTimeInSeconds float64) {
 	klog.Infof("Successfully created Component %s", componentName)
 	MetricsWrapper(MetricsController, metricsConstants.CollectorComponents, metricsConstants.MetricTypeGuage, metricsConstants.MetricActualComponentCreationTimeGauge, componentActualCreationTimeInSeconds)
 	SuccessfulComponentCreationsPerThread[ctx.ThreadIndex] += 1
 	MetricsWrapper(MetricsController, metricsConstants.CollectorComponents, metricsConstants.MetricTypeCounter, metricsConstants.MetricSuccessfulComponentCreationCounter)
-	userComponentMap.Store(username, componentName)
 	increaseBar(ctx.ComponentsBar, componentsBarMutex)
-	ctx.ChPipelines <- username
+	ctx.userAppsCompsMap.AddComponent(username, applicationName, componentName)
 }
 
 func handleComponentFailure(ctx *JourneyContext, applicationName string, err, conditionError error) {
@@ -1538,48 +1698,55 @@ type ConcreteHandlerPipelines struct {
 func (h *ConcreteHandlerPipelines) Handle(ctx *JourneyContext) {
 	if waitPipelines {
 		go func() {
+			klog.V(5).Infof("ConcreteHandlerPipelines thread start")
+			defer klog.V(5).Infof("ConcreteHandlerPipelines thread end")
 			defer ctx.innerThreadWG.Done()
+
 			chIntegrationTestsPipelines := ctx.ChIntegrationTestsPipelines
 
 			for username := range ctx.ChPipelines {
-				framework := frameworkForUser(username)
+
+				framework := ctx.userAppsCompsMap.GetUserFramework(username)
 				if framework == nil {
 					logError(18, fmt.Sprintf("Framework not found for username %s", username))
 					increaseBar(ctx.PipelinesBar, pipelinesBarMutex)
 					continue
 				}
+
 				usernamespace := framework.UserNamespace
-				componentName := componentForUser(username)
-				if componentName == "" {
-					logError(19, fmt.Sprintf("Component not found for username %s", username))
-					increaseBar(ctx.PipelinesBar, pipelinesBarMutex)
-					continue
+
+				for _, applicationName := range ctx.userAppsCompsMap.GetUserApps(username) {
+					for _, componentName := range ctx.userAppsCompsMap.GetAppComps(username, applicationName) {
+						h.validatePipeline(ctx, framework, componentName, applicationName, username, usernamespace)
+					}
 				}
 
-				applicationName := fmt.Sprintf("%s-app", username)
-				h.validatePipeline(ctx, framework, componentName, applicationName, username, usernamespace)
 			}
+
 			close(chIntegrationTestsPipelines)
 		}()
+	} else {
+		klog.V(5).Infof("ConcreteHandlerPipelines skipped")
+	}
 
-		// After calling ConcreteHandlerPipelines's logic, trigger the next handler in a new goroutine
-		if h.next != nil {
-			h.next.Handle(ctx)
-		}
+	// After calling ConcreteHandlerPipelines's logic, trigger the next handler in a new goroutine
+	if h.next != nil {
+		h.next.Handle(ctx)
 	}
 }
 
 func (h *ConcreteHandlerPipelines) validatePipeline(ctx *JourneyContext, framework *framework.Framework, componentName, applicationName, username, usernamespace string) {
+	klog.V(5).Infof("validatePipeline start username: %s, usernamespace: %s, applicationName: %s, componentName: %s", username, usernamespace, applicationName, componentName)
+	defer klog.V(5).Infof("validatePipeline end username: %s, usernamespace: %s, applicationName: %s, componentName: %s", username, usernamespace, applicationName, componentName)
+
 	pipelineCreatedRetryInterval := time.Second * 20
 	pipelineCreatedTimeout := time.Minute * 30
-	var pipelineRun *pipeline.PipelineRun
 
 	threadIndex := ctx.ThreadIndex
 	chIntegrationTestsPipelines := ctx.ChIntegrationTestsPipelines
 	pipelinesBar := ctx.PipelinesBar
 
-	err, pipelineRunName := h.validatePipelineCreation(ctx, framework, componentName, applicationName, usernamespace, pipelineCreatedRetryInterval, pipelineCreatedTimeout)
-
+	err, _ := h.validatePipelineCreation(ctx, framework, componentName, applicationName, usernamespace, pipelineCreatedRetryInterval, pipelineCreatedTimeout)
 	if err != nil {
 		logError(20, fmt.Sprintf("PipelineRun for applicationName/componentName %s/%s has not been created within %v: %v", applicationName, componentName, pipelineCreatedTimeout, err))
 		FailedPipelineRunsPerThread[ctx.ThreadIndex] += 1
@@ -1587,12 +1754,12 @@ func (h *ConcreteHandlerPipelines) validatePipeline(ctx *JourneyContext, framewo
 		increaseBar(ctx.PipelinesBar, pipelinesBarMutex)
 		return
 	}
-	userComponentPipelineRunMap.Store(username, pipelineRunName)
 
 	pipelineRunRetryInterval := time.Second * 20
 	pipelineRunTimeout := time.Minute * 60
+
 	err = k8swait.PollUntilContextTimeout(context.Background(), pipelineRunRetryInterval, pipelineRunTimeout, false, func(ctx context.Context) (done bool, err error) {
-		pipelineRun, err = framework.AsKubeDeveloper.HasController.GetComponentPipelineRunWithType(componentName, applicationName, usernamespace, "build", "")
+		pipelineRun, err := framework.AsKubeDeveloper.HasController.GetComponentPipelineRunWithType(componentName, applicationName, usernamespace, "build", "")
 		if err != nil {
 			time.Sleep(time.Millisecond * time.Duration(rand.IntnRange(10, 200)))
 			return false, nil
@@ -1635,6 +1802,9 @@ func (h *ConcreteHandlerPipelines) validatePipeline(ctx *JourneyContext, framewo
 }
 
 func (h *ConcreteHandlerPipelines) validatePipelineCreation(ctx *JourneyContext, framework *framework.Framework, componentName, applicationName, usernamespace string, pipelineCreatedRetryInterval, pipelineCreatedTimeout time.Duration) (error, string) {
+	klog.V(5).Infof("validatePipelineCreation start usernamespace: %s, applicationName: %s, componentName: %s", usernamespace, applicationName, componentName)
+	defer klog.V(5).Infof("validatePipelineCreation end usernamespace: %s, applicationName: %s, componentName: %s", usernamespace, applicationName, componentName)
+
 	var pipelineRun *pipeline.PipelineRun
 
 	err := k8swait.PollUntilContextTimeout(context.Background(), pipelineCreatedRetryInterval, pipelineCreatedTimeout, false, func(ctx context.Context) (done bool, err error) {
@@ -1673,36 +1843,44 @@ func (h *ConcreteHandlerPipelines) handlePVCS(threadIndex int, framework *framew
 }
 
 type ConcreteHandlerItsPipelines struct {
-    ConcreteHandlerPipelines // Embedding ConcreteHandlerPipelines
+	ConcreteHandlerPipelines // Embedding ConcreteHandlerPipelines
 }
 
 func (h *ConcreteHandlerItsPipelines) Handle(ctx *JourneyContext) {
 	if waitIntegrationTestsPipelines {
 		go func() {
+			klog.V(5).Infof("ConcreteHandlerItsPipelines thread start")
+			defer klog.V(5).Infof("ConcreteHandlerItsPipelines thread end")
 			defer ctx.innerThreadWG.Done()
 			chDeployments := ctx.ChDeployments
 
 			for username := range ctx.ChIntegrationTestsPipelines {
-				// itsPipelineRun is triggered per each application's integration test scenario (its) created (1 only) to test the application's snapshot created
-				applicationName := fmt.Sprintf("%s-app", username)
-				h.validateItsPipeline(ctx, applicationName, username)
+				for _, applicationName := range ctx.userAppsCompsMap.GetUserApps(username) {
+					for _, componentName := range ctx.userAppsCompsMap.GetAppComps(username, applicationName) {
+						for _, itsName := range ctx.userAppsCompsMap.GetIntegrationTestScenarios(username, applicationName) {
+							h.validateItsPipeline(ctx, applicationName, componentName, itsName, username)
+						}
+					}
+				}
 			}
 			close(chDeployments)
 		}()
+	} else {
+		klog.V(5).Infof("ConcreteHandlerItsPipelines skipped")
+	}
 
-		// After calling ConcreteHandlerItsPipelines's logic, trigger the next handler in a new goroutine
-		if h.next != nil {
-			h.next.Handle(ctx)
-		}
+	// After calling ConcreteHandlerItsPipelines's logic, trigger the next handler in a new goroutine
+	if h.next != nil {
+		h.next.Handle(ctx)
 	}
 }
 
-func (h *ConcreteHandlerItsPipelines) validateItsPipeline(ctx *JourneyContext, applicationName, username string) {
-	framework := frameworkForUser(username)
+func (h *ConcreteHandlerItsPipelines) validateItsPipeline(ctx *JourneyContext, applicationName, componentName, itsName, username string) {
+	klog.V(5).Infof("validateItsPipeline start username: %s, applicationName: %s, componentName: %s, itsName: %s", username, applicationName, componentName, itsName)
+	defer klog.V(5).Infof("validateItsPipeline end username: %s, applicationName: %s, componentName: %s, itsName: %s", username, applicationName, componentName, itsName)
+
+	framework := ctx.userAppsCompsMap.GetUserFramework(username)
 	usernamespace := framework.UserNamespace
-	componentName := componentForUser(username)
-	testScenarioName := testScenarioForUser(username)
-	componentPipelineRunName := userComponentPipelineRunForUser(username)
 	threadIndex := ctx.ThreadIndex
 	chDeployments := ctx.ChDeployments
 	integrationTestsPipelinesBar := ctx.IntegrationTestsPipelinesBar
@@ -1710,8 +1888,7 @@ func (h *ConcreteHandlerItsPipelines) validateItsPipeline(ctx *JourneyContext, a
 	snapshotCreatedRetryInterval := time.Second * 20
 	snapshotCreatedTimeout := time.Minute * 30
 
-	err, snapshotName := h.validateSnapshotCreation(ctx, framework, componentPipelineRunName, usernamespace, snapshotCreatedRetryInterval, snapshotCreatedTimeout)
-
+	err, snapshotName := h.validateSnapshotCreation(ctx, framework, componentName, usernamespace, snapshotCreatedRetryInterval, snapshotCreatedTimeout)
 	if err != nil {
 		logError(23, fmt.Sprintf("Snapshot for applicationName/componentName %s/%s has not been created within %v: %v", applicationName, componentName, snapshotCreatedTimeout, err))
 		FailedIntegrationTestsPipelineRunsPerThread[threadIndex] += 1
@@ -1723,9 +1900,9 @@ func (h *ConcreteHandlerItsPipelines) validateItsPipeline(ctx *JourneyContext, a
 	IntegrationTestsPipelineCreatedRetryInterval := time.Second * 20
 	IntegrationTestsPipelineCreatedTimeout := time.Minute * 30
 
-	err = h.validateItsPipelineCreation(ctx, framework, testScenarioName, snapshotName, usernamespace, IntegrationTestsPipelineCreatedRetryInterval, IntegrationTestsPipelineCreatedTimeout)
+	err = h.validateItsPipelineCreation(ctx, framework, itsName, snapshotName, usernamespace, IntegrationTestsPipelineCreatedRetryInterval, IntegrationTestsPipelineCreatedTimeout)
 	if err != nil {
-		logError(24, fmt.Sprintf("IntegrationTestPipelineRun for applicationName/testScenarioName/snapshotName %s/%s/%s has not been created within %v: %v", applicationName, testScenarioName, snapshotName, IntegrationTestsPipelineCreatedTimeout, err))
+		logError(24, fmt.Sprintf("IntegrationTestPipelineRun for applicationName/itsName/snapshotName %s/%s/%s has not been created within %v: %v", applicationName, itsName, snapshotName, IntegrationTestsPipelineCreatedTimeout, err))
 		FailedIntegrationTestsPipelineRunsPerThread[threadIndex] += 1
 		MetricsWrapper(MetricsController, metricsConstants.CollectorIntegrationTestsPipeline, metricsConstants.MetricTypeCounter, metricsConstants.MetricFailedIntegrationPipelineRunsCreationCounter)
 		increaseBar(integrationTestsPipelinesBar, integrationTestsPipelinesBarMutex)
@@ -1734,22 +1911,23 @@ func (h *ConcreteHandlerItsPipelines) validateItsPipeline(ctx *JourneyContext, a
 
 	IntegrationTestsPipelineRunRetryInterval := time.Second * 20
 	IntegrationTestsPipelineRunTimeout := time.Minute * 60
-	var IntegrationTestsPipelineRun *pipeline.PipelineRun
+	//var IntegrationTestsPipelineRun *pipeline.PipelineRun
+
 	err = k8swait.PollUntilContextTimeout(context.Background(), IntegrationTestsPipelineRunRetryInterval, IntegrationTestsPipelineRunTimeout, false, func(ctx context.Context) (done bool, err error) {
-		IntegrationTestsPipelineRun, err = framework.AsKubeDeveloper.IntegrationController.GetIntegrationPipelineRun(testScenarioName, snapshotName, usernamespace)
+		IntegrationTestsPipelineRun, err := framework.AsKubeDeveloper.IntegrationController.GetIntegrationPipelineRun(itsName, snapshotName, usernamespace)
 		if err != nil {
 			time.Sleep(time.Millisecond * time.Duration(rand.IntnRange(10, 200)))
 			return false, nil
 		}
 		if IntegrationTestsPipelineRun.IsDone() {
 			if !stage {
-                h.handlePVCS(threadIndex, framework, IntegrationTestsPipelineRun)
+				h.handlePVCS(threadIndex, framework, IntegrationTestsPipelineRun)
 			}
 			succeededCondition := IntegrationTestsPipelineRun.Status.GetCondition(apis.ConditionSucceeded)
 			if succeededCondition.IsFalse() {
 				dur := IntegrationTestsPipelineRun.Status.CompletionTime.Sub(IntegrationTestsPipelineRun.CreationTimestamp.Time)
 				IntegrationTestsPipelineRunFailedTimeSumPerThread[threadIndex] += dur
-				logError(25, fmt.Sprintf("IntegrationTestPipelineRun for applicationName/testScenarioName/snapshotName %s/%s/%s failed due to %v: %v", applicationName, testScenarioName, snapshotName, succeededCondition.Reason, succeededCondition.Message))
+				logError(25, fmt.Sprintf("IntegrationTestPipelineRun for applicationName/itsName/snapshotName %s/%s/%s failed due to %v: %v", applicationName, itsName, snapshotName, succeededCondition.Reason, succeededCondition.Message))
 				FailedIntegrationTestsPipelineRunsPerThread[threadIndex] += 1
 				MetricsWrapper(MetricsController, metricsConstants.CollectorIntegrationTestsPipeline, metricsConstants.MetricTypeCounter, metricsConstants.MetricFailedIntegrationPipelineRunsCreationCounter)
 			} else {
@@ -1769,7 +1947,7 @@ func (h *ConcreteHandlerItsPipelines) validateItsPipeline(ctx *JourneyContext, a
 		return IntegrationTestsPipelineRun.IsDone(), nil
 	})
 	if err != nil {
-		logError(26, fmt.Sprintf("IntegrationTestPipelineRun for applicationName/testScenarioName/snapshotName %s/%s/%s failed to succeed within %v: %v", applicationName, testScenarioName, snapshotName, IntegrationTestsPipelineRunTimeout, err))
+		logError(26, fmt.Sprintf("IntegrationTestPipelineRun for applicationName/itsName/snapshotName %s/%s/%s failed to succeed within %v: %v", applicationName, itsName, snapshotName, IntegrationTestsPipelineRunTimeout, err))
 		FailedIntegrationTestsPipelineRunsPerThread[threadIndex] += 1
 		MetricsWrapper(MetricsController, metricsConstants.CollectorIntegrationTestsPipeline, metricsConstants.MetricTypeCounter, metricsConstants.MetricFailedIntegrationPipelineRunsCreationCounter)
 		increaseBar(integrationTestsPipelinesBar, integrationTestsPipelinesBarMutex)
@@ -1777,11 +1955,11 @@ func (h *ConcreteHandlerItsPipelines) validateItsPipeline(ctx *JourneyContext, a
 
 }
 
-func (h *ConcreteHandlerItsPipelines) validateSnapshotCreation(ctx *JourneyContext, framework *framework.Framework, componentPipelineRunName, usernamespace string, snapshotCreatedRetryInterval, snapshotCreatedTimeout time.Duration) (error, string) {
+func (h *ConcreteHandlerItsPipelines) validateSnapshotCreation(ctx *JourneyContext, framework *framework.Framework, componentName, usernamespace string, snapshotCreatedRetryInterval, snapshotCreatedTimeout time.Duration) (error, string) {
 	var snapshot *appstudioApi.Snapshot
 
 	err := k8swait.PollUntilContextTimeout(context.Background(), snapshotCreatedRetryInterval, snapshotCreatedTimeout, false, func(ctx context.Context) (done bool, err error) {
-		snapshot, err = framework.AsKubeDeveloper.IntegrationController.GetSnapshot("", componentPipelineRunName, "", usernamespace)
+		snapshot, err = framework.AsKubeDeveloper.IntegrationController.GetSnapshot("", "", componentName, usernamespace)
 		if err != nil {
 			time.Sleep(time.Millisecond * time.Duration(rand.IntnRange(10, 200)))
 			return false, nil
@@ -1796,9 +1974,9 @@ func (h *ConcreteHandlerItsPipelines) validateSnapshotCreation(ctx *JourneyConte
 	}
 }
 
-func (h *ConcreteHandlerItsPipelines) validateItsPipelineCreation(ctx *JourneyContext, framework *framework.Framework, testScenarioName, snapshotRunName, usernamespace string, pipelineCreatedRetryInterval, pipelineCreatedTimeout time.Duration) error {
+func (h *ConcreteHandlerItsPipelines) validateItsPipelineCreation(ctx *JourneyContext, framework *framework.Framework, itsName, snapshotRunName, usernamespace string, pipelineCreatedRetryInterval, pipelineCreatedTimeout time.Duration) error {
 	err := k8swait.PollUntilContextTimeout(context.Background(), pipelineCreatedRetryInterval, pipelineCreatedTimeout, false, func(ctx context.Context) (done bool, err error) {
-		_, err = framework.AsKubeDeveloper.IntegrationController.GetIntegrationPipelineRun(testScenarioName, snapshotRunName, usernamespace)
+		_, err = framework.AsKubeDeveloper.IntegrationController.GetIntegrationPipelineRun(itsName, snapshotRunName, usernamespace)
 		if err != nil {
 			time.Sleep(time.Millisecond * time.Duration(rand.IntnRange(10, 200)))
 			return false, nil
@@ -1816,27 +1994,33 @@ type ConcreteHandlerDeployments struct {
 func (h *ConcreteHandlerDeployments) Handle(ctx *JourneyContext) {
 	if waitDeployments {
 		go func() {
+			klog.V(5).Infof("ConcreteHandlerDeployments thread start")
+			defer klog.V(5).Infof("ConcreteHandlerDeployments thread end")
 			defer ctx.innerThreadWG.Done()
-			for username := range ctx.ChDeployments {
-				// since username added to chDeployments only after valid framework, usernamespace, componentName, and applicationName have been created
-				//  we don't need to verify validity for neither
-				framework := frameworkForUser(username)
-				applicationName := fmt.Sprintf("%s-app", username)
-				h.validateDeployment(ctx, framework, applicationName, username)
 
+			for username := range ctx.ChDeployments {
+				for _, applicationName := range ctx.userAppsCompsMap.GetUserApps(username) {
+					for _, componentName := range ctx.userAppsCompsMap.GetAppComps(username, applicationName) {
+						// since username added to chDeployments only after valid framework, usernamespace, componentName, and applicationName have been created
+						//  we don't need to verify validity for neither
+						framework := ctx.userAppsCompsMap.GetUserFramework(username)
+						h.validateDeployment(ctx, framework, applicationName, componentName, username)
+					}
+				}
 			}
 		}()
+	} else {
+		klog.V(5).Infof("ConcreteHandlerDeployments skipped")
+	}
 
-		// After calling ConcreteHandlerDeployments's logic, trigger the next handler in a new goroutine
-		if h.next != nil {
-			h.next.Handle(ctx)
-		}
+	// After calling ConcreteHandlerDeployments's logic, trigger the next handler in a new goroutine
+	if h.next != nil {
+		h.next.Handle(ctx)
 	}
 }
 
-func (h *ConcreteHandlerDeployments) validateDeployment(ctx *JourneyContext, framework *framework.Framework, applicationName, username string) {
+func (h *ConcreteHandlerDeployments) validateDeployment(ctx *JourneyContext, framework *framework.Framework, applicationName, componentName, username string) {
 	usernamespace := framework.UserNamespace
-	componentName := componentForUser(username)
 	var deployment *appsv1.Deployment
 
 	threadIndex := ctx.ThreadIndex

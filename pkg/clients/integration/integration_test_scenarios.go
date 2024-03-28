@@ -63,10 +63,13 @@ func (i *IntegrationController) CreateIntegrationTestScenarioWithEnvironment(app
 }
 
 // CreateIntegrationTestScenario creates beta1 version integrationTestScenario.
-func (i *IntegrationController) CreateIntegrationTestScenario(applicationName, namespace, gitURL, revision, pathInRepo string) (*integrationv1beta1.IntegrationTestScenario, error) {
+// Universal method to create a IntegrationTestScenario (its) in the kubernetes clusters and adds a suffix to the its name to allow multiple its's with unique names.
+// Generate a random its name with #combinations > 11M, Create unique resource names that adhere to RFC 1123 Label Names
+// https://kubernetes.io/docs/concepts/overview/working-with-objects/names/
+func (i *IntegrationController) CreateIntegrationTestScenarioV2(itsName, applicationName, namespace, gitURL, revision, pathInRepo string) (*integrationv1beta1.IntegrationTestScenario, error) {
 	integrationTestScenario := &integrationv1beta1.IntegrationTestScenario{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "my-integration-test-" + util.GenerateRandomString(4),
+			Name:      itsName,
 			Namespace: namespace,
 			Labels:    constants.IntegrationTestScenarioDefaultLabels,
 		},
@@ -97,6 +100,13 @@ func (i *IntegrationController) CreateIntegrationTestScenario(applicationName, n
 		return nil, err
 	}
 	return integrationTestScenario, nil
+}
+
+// CreateIntegrationTestScenario creates beta1 version integrationTestScenario.
+func (i *IntegrationController) CreateIntegrationTestScenario(applicationName, namespace, gitURL, revision, pathInRepo string) (*integrationv1beta1.IntegrationTestScenario, error) {
+	// use default itsName from the original function to keep backwards compatability
+	itsName := "my-integration-test-" + util.GenerateRandomString(4)
+	return i.CreateIntegrationTestScenarioV2(itsName, applicationName, namespace, gitURL, revision, pathInRepo)
 }
 
 // Get return the status from the Application Custom Resource object.

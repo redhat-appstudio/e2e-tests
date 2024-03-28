@@ -182,13 +182,23 @@ func (h *HasController) WaitForComponentPipelineToBeFinished(component *appservi
 	return nil
 }
 
-// Universal method to create a component in the kubernetes clusters.
-func (h *HasController) CreateComponent(componentSpec appservice.ComponentSpec, namespace string, outputContainerImage string, secret string, applicationName string, skipInitialChecks bool, annotations map[string]string) (*appservice.Component, error) {
+// Universal method to create a component in the kubernetes clusters and adds a suffix to the component name to allow multiple components with unique names.
+// Generate a random component name with #combinations > 11M, Create unique resource names that adhere to RFC 1123 Label Names
+// https://kubernetes.io/docs/concepts/overview/working-with-objects/names/
+func (h *HasController) CreateComponentV2(componentSpec appservice.ComponentSpec, namespace string, outputContainerImage string, secret string, applicationName string, skipInitialChecks bool, annotations map[string]string, option string) (*appservice.Component, string, error) {
+	var componentName string
+
+	if option == "default" {
+		componentName = componentSpec.ComponentName
+	} else {
+		componentName = componentSpec.ComponentName + "-" + util.GenerateRandomString(5)
+	}
+
 	componentObject := &appservice.Component{
 		ObjectMeta: metav1.ObjectMeta{
 			// adding default label because of the BuildPipelineSelector in build test
 			Labels:    constants.ComponentDefaultLabel,
-			Name:      componentSpec.ComponentName,
+			Name:      componentName,
 			Namespace: namespace,
 			Annotations: map[string]string{
 				"skip-initial-checks": strconv.FormatBool(skipInitialChecks),
@@ -217,18 +227,24 @@ func (h *HasController) CreateComponent(componentSpec appservice.ComponentSpec, 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*1)
 	defer cancel()
 	if err := h.KubeRest().Create(ctx, componentObject); err != nil {
-		return nil, err
+		return nil, componentName, err
 	}
 	if err := utils.WaitUntil(h.ComponentReady(componentObject), time.Minute*10); err != nil {
 		componentObject = h.refreshComponentForErrorDebug(componentObject)
-		return nil, fmt.Errorf("timed out when waiting for component %s to be ready in %s namespace. component: %s", componentSpec.ComponentName, namespace, utils.ToPrettyJSONString(componentObject))
+		return nil, componentName, fmt.Errorf("timed out when waiting for component %s to be ready in %s namespace. component: %s", componentName, namespace, utils.ToPrettyJSONString(componentObject))
 	}
 
 	if utils.WaitUntil(h.CheckForImageAnnotation(componentObject), time.Minute*5) != nil {
 		componentObject = h.refreshComponentForErrorDebug(componentObject)
-		return nil, fmt.Errorf("timed out when waiting for image-controller annotations to be updated on component %s in namespace %s. component: %s", componentSpec.ComponentName, namespace, utils.ToPrettyJSONString(componentObject))
+		return nil, componentName, fmt.Errorf("timed out when waiting for image-controller annotations to be updated on component %s in namespace %s. component: %s", componentName, namespace, utils.ToPrettyJSONString(componentObject))
 	}
-	return componentObject, nil
+	return componentObject, componentName, nil
+}
+
+// Universal method to create a component in the kubernetes clusters.
+func (h *HasController) CreateComponent(componentSpec appservice.ComponentSpec, namespace string, outputContainerImage string, secret string, applicationName string, skipInitialChecks bool, annotations map[string]string) (*appservice.Component, error) {
+	componentObject, _, err := h.CreateComponentV2(componentSpec, namespace, outputContainerImage, secret, applicationName, skipInitialChecks, annotations, "default")
+	return componentObject, err
 }
 
 // CreateComponentWithDockerSource creates a component based on container image source.
