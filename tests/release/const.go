@@ -45,7 +45,7 @@ const (
 	// EC constants
 	EcPolicyLibPath     = "github.com/enterprise-contract/ec-policies//policy/lib"
 	EcPolicyReleasePath = "github.com/enterprise-contract/ec-policies//policy/release"
-	EcPolicyDataBundle  = "oci::quay.io/redhat-appstudio-tekton-catalog/data-acceptable-bundles:latest"
+	EcPolicyDataBundle  = "oci::quay.io/konflux-ci/tekton-catalog/data-acceptable-bundles:latest"
 	EcPolicyDataPath    = "github.com/release-engineering/rhtap-ec-policy//data"
 
 	// Service constants
