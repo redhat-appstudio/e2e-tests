@@ -1,0 +1,167 @@
+---
+apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: konflux-e2e-runner
+spec:
+  description: |
+    This task runs E2E tests for the Konflux project using specified parameters
+    such as the Git repository URL, revision, and OpenShift login command. It sets up the environment,
+    clones the repository, and executes the E2E tests, storing the artifacts in an OCI container registry
+    using ORAS.
+  params:
+    - name: ocp-login-command
+      type: string
+      description: "Command to log in to the OpenShift cluster."
+    - name: test-name
+      type: string
+      description: "The name of the test being executed."
+    - name: git-repo
+      type: string
+      default: "rhtap-e2e"
+      description: "The name of the Git repository containing the E2E tests."
+    - name: git-url
+      type: string
+      default: "https://github.com/redhat-appstudio/rhtap-e2e.git"
+      description: "The URL of the Git repository containing the E2E tests."
+    - name: git-revision
+      type: string
+      default: "main"
+      description: "The revision (branch or tag) of the Git repository to checkout."
+    - name: oras-container
+      type: string
+      description: "The URI of the OCI container registry to store test artifacts."
+      default: "quay.io/org/rhtap-e2e-artifacts"
+    - name: job-spec
+      type: string
+      description: "The job specification containing details of the test execution."
+    - name: container-image
+      type: string
+      description: "Contain the container name from Konflux Snapshot."
+      default: "quay.io/redhat-user-workloads/rhtap-qe-shared-tenant/konflux-e2e/konflux-e2e-tests:latest"
+  volumes:
+    - name: konflux-secret-volume
+      secret:
+        secretName: konflux-secrets
+  steps:
+    - name: e2e-test
+      computeResources:
+        requests:
+          cpu: "2"
+          memory: "4Gi"
+        limits:
+          cpu: "3"
+          memory: "6Gi"
+      image: $(params.container-image)
+      volumeMounts:
+        - name: konflux-secret-volume
+          mountPath: /usr/local/konflux-ci-secrets
+      workingDir: /workspace
+      env:
+        - name: JOB_NAME
+          value: $(params.test-name)
+        - name: GIT_REPO
+          value: $(params.git-repo)
+        - name: GIT_URL
+          value: $(params.git-url)
+        - name: GIT_REVISION
+          value: $(params.git-revision)
+        - name: KONFLUX_CI
+          value: "true"
+        - name: JOB_SPEC
+          value: $(params.job-spec)
+        - name: ARTIFACT_DIR
+          value: "/workspace/test-artifacts"
+      script: |
+        #!/bin/sh
+        $(params.ocp-login-command)
+
+        oc config view --minify --raw > /workspace/kubeconfig
+        unset KUBECONFIG
+        export KUBECONFIG=/workspace/kubeconfig
+
+        if [ ! -d "$ARTIFACT_DIR" ]; then
+          mkdir -p $ARTIFACT_DIR
+        fi
+
+        export PATH=$PATH:/tmp/bin
+        mkdir -p /tmp/bin
+
+        export DEFAULT_QUAY_ORG DEFAULT_QUAY_ORG_TOKEN GITHUB_USER GITHUB_TOKEN QUAY_TOKEN QUAY_OAUTH_USER QUAY_OAUTH_TOKEN OPENSHIFT_API OPENSHIFT_USERNAME OPENSHIFT_PASSWORD \
+            GITHUB_ACCOUNTS_ARRAY PREVIOUS_RATE_REMAINING GITHUB_USERNAME_ARRAY GH_RATE_REMAINING PYXIS_STAGE_KEY PYXIS_STAGE_CERT OFFLINE_TOKEN TOOLCHAIN_API_URL KEYLOAK_URL REL_IMAGE_CONTROLLER_QUAY_ORG REL_IMAGE_CONTROLLER_QUAY_TOKEN BYOC_KUBECONFIG GITHUB_TOKENS_LIST OAUTH_REDIRECT_PROXY_URL SPI_GITHUB_CLIENT_ID SPI_GITHUB_CLIENT_SECRET \
+            QE_SPRAYPROXY_HOST QE_SPRAYPROXY_TOKEN E2E_PAC_GITHUB_APP_ID E2E_PAC_GITHUB_APP_PRIVATE_KEY PAC_GITHUB_APP_WEBHOOK_SECRET SLACK_BOT_TOKEN MULTI_PLATFORM_AWS_ACCESS_KEY MULTI_PLATFORM_AWS_SECRET_ACCESS_KEY MULTI_PLATFORM_AWS_SSH_KEY MULTI_PLATFORM_IBM_API_KEY ENABLE_SCHEDULING_ON_MASTER_NODES \
+            PAC_GITLAB_TOKEN PAC_GITLAB_URL PAC_PROJECT_ID
+
+        DEFAULT_QUAY_ORG=redhat-appstudio-qe
+        DEFAULT_QUAY_ORG_TOKEN=$(cat /usr/local/konflux-ci-secrets/default-quay-org-token)
+        GITHUB_USER=""
+        GITHUB_TOKEN=""
+        GITHUB_TOKENS_LIST="$(cat /usr/local/konflux-ci-secrets/github_accounts)"
+        QUAY_TOKEN=$(cat /usr/local/konflux-ci-secrets/quay-token)
+        QUAY_OAUTH_USER=$(cat /usr/local/konflux-ci-secrets/quay-oauth-user)
+        QUAY_OAUTH_TOKEN=$(cat /usr/local/konflux-ci-secrets/quay-oauth-token)
+        PYXIS_STAGE_KEY=$(cat /usr/local/konflux-ci-secrets/pyxis-stage-key)
+        PYXIS_STAGE_CERT=$(cat /usr/local/konflux-ci-secrets/pyxis-stage-cert)
+        OFFLINE_TOKEN=$(cat /usr/local/konflux-ci-secrets/stage_offline_token)
+        TOOLCHAIN_API_URL=$(cat /usr/local/konflux-ci-secrets/stage_toolchain_api_url)
+        KEYLOAK_URL=$(cat /usr/local/konflux-ci-secrets/stage_keyloak_url)
+        REL_IMAGE_CONTROLLER_QUAY_ORG=$(cat /usr/local/konflux-ci-secrets/release_image_controller_quay_org)
+        REL_IMAGE_CONTROLLER_QUAY_TOKEN=$(cat /usr/local/konflux-ci-secrets/release_image_controller_quay_token)
+        OPENSHIFT_API="$(yq e '.clusters[0].cluster.server' $KUBECONFIG)"
+        OPENSHIFT_USERNAME="kubeadmin"
+        PREVIOUS_RATE_REMAINING=0
+        OAUTH_REDIRECT_PROXY_URL=$(cat /usr/local/konflux-ci-secrets/oauth-redirect-proxy-url)
+        SPI_GITHUB_CLIENT_ID=$(cat /usr/local/konflux-ci-secrets/spi-github-client-id)
+        SPI_GITHUB_CLIENT_SECRET=$(cat /usr/local/konflux-ci-secrets/spi-github-client-secret)
+        QE_SPRAYPROXY_HOST=$(cat /usr/local/konflux-ci-secrets/qe-sprayproxy-host)
+        QE_SPRAYPROXY_TOKEN=$(cat /usr/local/konflux-ci-secrets/qe-sprayproxy-token)
+        E2E_PAC_GITHUB_APP_ID=$(cat /usr/local/konflux-ci-secrets/pac-github-app-id)
+        E2E_PAC_GITHUB_APP_PRIVATE_KEY=$(cat /usr/local/konflux-ci-secrets/pac-github-app-private-key)
+        PAC_GITHUB_APP_WEBHOOK_SECRET=$(cat /usr/local/konflux-ci-secrets/pac-github-app-webhook-secret)
+        SLACK_BOT_TOKEN=$(cat /usr/local/konflux-ci-secrets/slack-bot-token)
+        MULTI_PLATFORM_AWS_ACCESS_KEY=$(cat /usr/local/konflux-ci-secrets/multi-platform-aws-access-key)
+        MULTI_PLATFORM_AWS_SECRET_ACCESS_KEY=$(cat /usr/local/konflux-ci-secrets/multi-platform-aws-secret-access-key)
+        MULTI_PLATFORM_AWS_SSH_KEY=$(cat /usr/local/konflux-ci-secrets/multi-platform-aws-ssh-key)
+        MULTI_PLATFORM_IBM_API_KEY=$(cat /usr/local/konflux-ci-secrets/multi-platform-ibm-api-key)
+        PAC_GITLAB_TOKEN=$(cat /usr/local/konflux-ci-secrets/pac-gitlab-token)
+        PAC_GITLAB_URL=$(cat /usr/local/konflux-ci-secrets/pac-gitlab-url)
+        PAC_PROJECT_ID=$(cat /usr/local/konflux-ci-secrets/pac-project-id)
+
+        ENABLE_SCHEDULING_ON_MASTER_NODES=false
+
+        # user stored: username:token,username:token
+        IFS=',' read -r -a GITHUB_ACCOUNTS_ARRAY <<< "$(cat /usr/local/konflux-ci-secrets/github_accounts)"
+        for account in "${GITHUB_ACCOUNTS_ARRAY[@]}"
+        do :
+            IFS=':' read -r -a GITHUB_USERNAME_ARRAY <<< "$account"
+
+            GH_RATE_REMAINING=$(curl -s \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${GITHUB_USERNAME_ARRAY[1]}"\
+            https://api.github.com/rate_limit | jq ".rate.remaining")
+
+            echo -e "[INFO ] user: ${GITHUB_USERNAME_ARRAY[0]} with rate limit remaining $GH_RATE_REMAINING"
+            if [[ "${GH_RATE_REMAINING}" -ge "${PREVIOUS_RATE_REMAINING}" ]];then
+                GITHUB_USER="${GITHUB_USERNAME_ARRAY[0]}"
+                GITHUB_TOKEN="${GITHUB_USERNAME_ARRAY[1]}"
+            fi
+            PREVIOUS_RATE_REMAINING="${GH_RATE_REMAINING}"
+        done
+
+        echo -e "[INFO] Start tests with user: ${GITHUB_USER}"
+
+        cd "$(mktemp -d)"
+
+        git config --global user.name "redhat-appstudio-qe-bot"
+        git config --global user.email redhat-appstudio-qe-bot@redhat.com
+
+        mkdir -p "${HOME}/creds"
+        GIT_CREDS_PATH="${HOME}/creds/file"
+        git config --global credential.helper "store --file ${GIT_CREDS_PATH}"
+
+        echo "https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com" > "${GIT_CREDS_PATH}"
+
+        git clone --origin upstream --branch konflux_ci "https://${GITHUB_TOKEN}@github.com/flacatus/e2e-tests.git" .
+        make ci/prepare/e2e-branch
+
+        make ci/test/e2e

@@ -49,6 +49,7 @@ var (
 	artifactDir      = utils.GetEnv("ARTIFACT_DIR", ".")
 	openshiftJobSpec = &OpenshiftJobSpec{}
 	pr               = &PullRequestMetadata{}
+	konfluxCI        = os.Getenv("KONFLUX_CI")
 	jobName          = utils.GetEnv("JOB_NAME", "")
 	// can be periodic, presubmit or postsubmit
 	jobType                    = utils.GetEnv("JOB_TYPE", "")
@@ -63,10 +64,19 @@ var (
 
 	sprayProxyConfig       *sprayproxy.SprayProxyConfig
 	quayTokenNotFoundError = "DEFAULT_QUAY_ORG_TOKEN env var was not found"
+
+	konfluxCiSpec = &KonfluxCISpec{}
 )
 
 func (CI) parseJobSpec() error {
 	jobSpecEnvVarData := os.Getenv("JOB_SPEC")
+
+	if konfluxCI == "true" {
+		if err := json.Unmarshal([]byte(jobSpecEnvVarData), konfluxCiSpec); err != nil {
+			return fmt.Errorf("error when parsing openshift job spec data: %v", err)
+		}
+		return nil
+	}
 
 	if err := json.Unmarshal([]byte(jobSpecEnvVarData), openshiftJobSpec); err != nil {
 		return fmt.Errorf("error when parsing openshift job spec data: %v", err)
@@ -85,17 +95,24 @@ func (ci CI) init() error {
 		return err
 	}
 
-	pr.Organization = openshiftJobSpec.Refs.Organization
-	pr.RepoName = openshiftJobSpec.Refs.Repo
-	pr.CommitSHA = openshiftJobSpec.Refs.Pulls[0].SHA
-	pr.Number = openshiftJobSpec.Refs.Pulls[0].Number
+	if konfluxCI == "true" {
+		pr.Organization = konfluxCiSpec.KonfluxGitRefs.GitOrg
+		pr.RepoName = konfluxCiSpec.KonfluxGitRefs.GitRepo
+		pr.CommitSHA = konfluxCiSpec.KonfluxGitRefs.CommitSha
+		pr.Number = konfluxCiSpec.KonfluxGitRefs.PullRequestNumber
+	} else {
+		pr.Organization = openshiftJobSpec.Refs.Organization
+		pr.RepoName = openshiftJobSpec.Refs.Repo
+		pr.CommitSHA = openshiftJobSpec.Refs.Pulls[0].SHA
+		pr.Number = openshiftJobSpec.Refs.Pulls[0].Number
+	}
 
 	prUrl := fmt.Sprintf("https://api.github.com/repos/%s/%s/pulls/%d", pr.Organization, pr.RepoName, pr.Number)
 	pr.RemoteName, pr.BranchName, err = getRemoteAndBranchNameFromPRLink(prUrl)
 	if err != nil {
 		return err
 	}
-
+	fmt.Println(pr.RemoteName, pr.BranchName)
 	return nil
 }
 
@@ -108,7 +125,7 @@ func (ci CI) PrepareE2EBranch() error {
 		return err
 	}
 
-	if openshiftJobSpec.Refs.Repo == "e2e-tests" {
+	if pr.RepoName == "e2e-tests" {
 		if err := gitCheckoutRemoteBranch(pr.RemoteName, pr.CommitSHA); err != nil {
 			return err
 		}
@@ -728,14 +745,14 @@ func createNewTaskBundleAndPush(currentSourceTaskBundle, sourceImage string) str
 func BootstrapCluster() error {
 	envVars := map[string]string{}
 
-	if os.Getenv("CI") == "true" {
+	if os.Getenv("CI") == "true" || konfluxCI == "true" {
 		if err := setRequiredEnvVars(); err != nil {
 			return fmt.Errorf("error when setting up required env vars: %v", err)
 		}
 		if os.Getenv("REPO_NAME") == "e2e-tests" {
 			// Some scripts in infra-deployments repo are referencing scripts/utils in e2e-tests repo
 			// This env var allows to test changes introduced in "e2e-tests" repo PRs in CI
-			envVars["E2E_TESTS_COMMIT_SHA"] = os.Getenv("PULL_PULL_SHA")
+			envVars["E2E_TESTS_COMMIT_SHA"] = pr.CommitSHA
 		}
 	}
 
