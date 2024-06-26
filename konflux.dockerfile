@@ -7,7 +7,7 @@ ARG JQ_VERSION=1.6
 # renovate: datasource=github-releases depName=mikefarah/yq
 ARG YQ_VERSION=4.43.1
 
-WORKDIR /github.com/redhat-appstudio/e2e-tests
+WORKDIR /konflux-e2e
 USER root
 
 COPY go.mod .
@@ -19,7 +19,8 @@ COPY pkg/ pkg/
 COPY tests/ tests/
 COPY Makefile .
 
-RUN make build
+RUN go install -mod=mod github.com/onsi/ginkgo/v2/ginkgo
+RUN ginkgo build ./cmd
 
 RUN curl -L "https://mirror.openshift.com/pub/openshift-v4/clients/ocp/${OC_VERSION}/openshift-client-linux.tar.gz" -o /tmp/openshift-client-linux.tar.gz && \
     tar --no-same-owner -xzf /tmp/openshift-client-linux.tar.gz && \
@@ -37,11 +38,14 @@ RUN curl -L "https://github.com/mikefarah/yq/releases/download/v${YQ_VERSION}/yq
 
 FROM registry.access.redhat.com/ubi8/go-toolset:1.21.9-3.1718100004
 
+WORKDIR /konflux-e2e
+
 ENV GOBIN=$GOPATH/bin
+ENV E2E_BIN_PATH=/konflux-e2e/konflux-e2e
 
 COPY --from=builder /usr/local/bin/jq /usr/local/bin/jq
 COPY --from=builder /usr/local/bin/yq /usr/local/bin/yq
 COPY --from=builder /usr/local/bin/oc /usr/local/bin/oc
 COPY --from=builder /usr/local/bin/kubectl /usr/local/bin/kubectl
-COPY --from=builder /github.com/konflux-ci/e2e-tests/bin/e2e-appstudio ./
-COPY --from=builder /github.com/konflux-ci/e2e-tests/tests ./tests
+COPY --from=builder /go/bin/ginkgo /usr/local/bin
+COPY --from=builder /konflux-e2e/cmd/cmd.test konflux-e2e

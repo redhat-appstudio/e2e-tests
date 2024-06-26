@@ -1255,8 +1255,13 @@ func CleanWorkload() error {
 }
 
 func runTests(labelsToRun string, junitReportFile string) error {
+	ginkgoCmd := "./cmd"
+	if os.Getenv("E2E_BIN_PATH") != "" {
+		ginkgoCmd = os.Getenv("E2E_BIN_PATH")
+	}
+
 	// added --output-interceptor-mode=none to mitigate RHTAPBUGS-34
-	return sh.RunV("ginkgo", "-p", "--output-interceptor-mode=none", "--timeout=90m", fmt.Sprintf("--output-dir=%s", artifactDir), "--junit-report="+junitReportFile, "--label-filter="+labelsToRun, "./cmd", "--")
+	return sh.RunV("ginkgo", "-p", "--output-interceptor-mode=none", "--timeout=90m", fmt.Sprintf("--output-dir=%s", artifactDir), "--junit-report="+junitReportFile, "--label-filter="+labelsToRun, ginkgoCmd, "--")
 }
 
 func CleanupRegisteredPacServers() error {
