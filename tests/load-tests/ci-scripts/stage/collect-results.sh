@@ -106,11 +106,11 @@ else
 
         # Application info
         echo "Collecting Application timestamps..."
-        collect_application "-n ${tenant}" "$application_stub-$tenant"
+        collect_application "-n ${tenant}" "$application_stub-$tenant" || echo "ERROR: Failed"
 
         # Component info
         echo "Collecting Component timestamps..."
-        collect_component "-n ${tenant}" "$component_stub-$tenant"
+        collect_component "-n ${tenant}" "$component_stub-$tenant" || echo "ERROR: Failed"
     done
 fi
 
