@@ -2,7 +2,7 @@
   apiVersion: tekton.dev/v1beta1
   kind: Pipeline
   metadata:
-    name: konflux-e2e-pipeline
+    name: rhtap-installer-e2e
   spec:
     description: |-
       This pipeline automates the process of running end-to-end tests for RHTAP
@@ -142,7 +142,7 @@
             - name: url
               value: https://github.com/konflux-qe-incubator/konflux-qe-definitions.git
             - name: revision
-              value: main
+              value: test
             - name: pathInRepo
               value: common/tasks/rosa/hosted-cp/rosa-hcp-deprovision/rosa-hcp-deprovision.yaml
         params:

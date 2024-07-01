@@ -765,7 +765,7 @@ func BootstrapCluster() error {
 		return err
 	}
 
-	if os.Getenv("CI") == "true" && requiresSprayProxyRegistering {
+	if os.Getenv("CI") == "true" || konfluxCI == "true" && requiresSprayProxyRegistering {
 		err := registerPacServer()
 		if err != nil {
 			os.Setenv(constants.SKIP_PAC_TESTS_ENV, "true")

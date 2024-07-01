@@ -48,10 +48,10 @@ spec:
       computeResources:
         requests:
           cpu: "2"
-          memory: "4Gi"
+          memory: "8Gi"
         limits:
-          cpu: "3"
-          memory: "6Gi"
+          cpu: "4"
+          memory: "12Gi"
       image: $(params.container-image)
       volumeMounts:
         - name: konflux-secret-volume
@@ -161,7 +161,7 @@ spec:
 
         echo "https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com" > "${GIT_CREDS_PATH}"
 
-        git clone --origin upstream --branch konflux_ci "https://${GITHUB_TOKEN}@github.com/flacatus/e2e-tests.git" .
+        git clone --origin upstream --branch ocp-kfx "https://${GITHUB_TOKEN}@github.com/flacatus/e2e-tests.git" .
         make ci/prepare/e2e-branch
 
         make ci/test/e2e
