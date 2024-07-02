@@ -106,7 +106,7 @@ var _ = framework.ReleasePipelinesSuiteDescribe("e2e tests for rh-push-to-redhat
 			_, err = devFw.AsKubeDeveloper.ReleaseController.CreateReleasePlan(rhioReleasePlanName, devNamespace, rhioApplicationName, managedNamespace, "true", nil, nil)
 			Expect(err).NotTo(HaveOccurred())
 
-			testComponent = releasecommon.CreateComponent(*devFw, devNamespace, rhioApplicationName, rhioComponentName, releasecommon.AdditionalGitSourceComponentUrl, "", ".", constants.DockerFilePath, constants.DefaultDockerBuildPipelineBundle)
+			testComponent = releasecommon.CreateComponent(*devFw, devNamespace, rhioApplicationName, rhioComponentName, "https://github.com/hacbs-release/multi-platform-test-prod", "", ".", constants.DockerFilePath, constants.DefaultDockerBuildPipelineBundle)
 
 			createRHIOReleasePlanAdmission(rhioReleasePlanAdmissionName, *managedFw, devNamespace, managedNamespace, rhioApplicationName, rhioEnterpriseContractPolicyName, rhioCatalogPathInRepo)
 
@@ -114,11 +114,12 @@ var _ = framework.ReleasePipelinesSuiteDescribe("e2e tests for rh-push-to-redhat
 		})
 
 		AfterAll(func() {
-			devFw = releasecommon.NewFramework(devWorkspace)
+/*			devFw = releasecommon.NewFramework(devWorkspace)
 			managedFw = releasecommon.NewFramework(managedWorkspace)
 			Expect(devFw.AsKubeDeveloper.HasController.DeleteApplication(rhioApplicationName, devNamespace, false)).NotTo(HaveOccurred())
 			Expect(managedFw.AsKubeDeveloper.TektonController.DeleteEnterpriseContractPolicy(rhioEnterpriseContractPolicyName, managedNamespace, false)).NotTo(HaveOccurred())
 			Expect(managedFw.AsKubeDeveloper.ReleaseController.DeleteReleasePlanAdmission(rhioReleasePlanAdmissionName, managedNamespace, false)).NotTo(HaveOccurred())
+			*/
 		})
 
 		var _ = Describe("Post-release verification", func() {
