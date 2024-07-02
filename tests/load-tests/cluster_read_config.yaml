@@ -200,3 +200,13 @@
 {{ monitor_pod('openshift-pipelines', 'tekton-pipelines-controller', 15) }}
 {{ monitor_pod('tekton-results', 'tekton-results-watcher', 1, '-.*') }}
 {{ monitor_pod_container('tekton-results', 'tekton-results-watcher', 'watcher', 1, '-.*') }}
+{{ monitor_pod('tekton-results', 'tekton-results-api', 1, '-.*') }}
+{{ monitor_pod_container('tekton-results', 'tekton-results-api', 'api', 1, '-.*') }}
+
+- name: measurements.tekton-results-watcher.watcher_workqueue_depth
+  monitoring_query: sum(watcher_workqueue_depth{job="tekton-results-watcher"})
+  monitoring_step: 1
+
+- name: measurements.tekton-results-watcher.watcher_reconcile_latency_bucket
+  monitoring_query: histogram_quantile(0.99, sum(rate(watcher_reconcile_latency_bucket{job="tekton-results-watcher"}[30m])) by (le) ) / 1000
+  monitoring_step: 1

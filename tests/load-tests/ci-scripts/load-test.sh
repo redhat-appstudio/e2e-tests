@@ -10,7 +10,9 @@ source "$( dirname $0 )/user-prefix.sh"
 
 pushd "${2:-./tests/load-tests}"
 
-export QUAY_E2E_ORGANIZATION MY_GITHUB_ORG GITHUB_TOKEN TEKTON_PERF_ENABLE_PROFILING TEKTON_PERF_ENABLE_CPU_PROFILING TEKTON_PERF_ENABLE_MEMORY_PROFILING TEKTON_PERF_PROFILE_CPU_PERIOD KUBE_SCHEDULER_LOG_LEVEL
+source "./ci-scripts/user-prefix.sh"
+
+export QUAY_E2E_ORGANIZATION MY_GITHUB_ORG GITHUB_USER GITHUB_TOKEN TEKTON_PERF_ENABLE_PROFILING TEKTON_PERF_ENABLE_CPU_PROFILING TEKTON_PERF_ENABLE_MEMORY_PROFILING TEKTON_PERF_PROFILE_CPU_PERIOD KUBE_SCHEDULER_LOG_LEVEL
 QUAY_E2E_ORGANIZATION=$(cat /usr/local/ci-secrets/redhat-appstudio-load-test/quay-org)
 MY_GITHUB_ORG=$(cat /usr/local/ci-secrets/redhat-appstudio-load-test/github-org)
 
@@ -24,6 +26,8 @@ for kv in "${kvs[@]}"; do
     echo -n ";${name_token[0]}" >>"$rate_limits_csv"
 done
 echo >>"$rate_limits_csv"
+
+echo -e "[INFO] Start tests with user: ${GITHUB_USER}"
 
 while true; do
     timestamp=$(printf "%s" "$(date -u +'%FT%T')")

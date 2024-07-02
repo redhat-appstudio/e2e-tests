@@ -4,7 +4,7 @@ set -o nounset
 set -o errexit
 set -o pipefail
 
-source "$( dirname $0 )/../utils.sh"
+source "$(dirname $0)/../utils.sh"
 
 echo "[$(date --utc -Ins)] Collecting load test results"
 
@@ -27,14 +27,15 @@ find . -maxdepth 1 -type d -name 'collected-data' -exec cp -r {} "${ARTIFACT_DIR
 
 echo "[$(date --utc -Ins)] Setting up Python venv"
 {
-python3 -m venv venv
-set +u
-source venv/bin/activate
-set -u
-python3 -m pip install -U pip
-python3 -m pip install -e "git+https://github.com/redhat-performance/opl.git#egg=opl-rhcloud-perf-team-core&subdirectory=core"
-python3 -m pip install tabulate
-python3 -m pip install matplotlib
+    python3 -m venv venv
+    set +u
+    source venv/bin/activate
+    set -u
+    python3 -m pip install -U pip
+    python3 -m pip install -e "git+https://github.com/redhat-performance/opl.git#egg=opl-rhcloud-perf-team-core&subdirectory=core"
+    python3 -m pip install tabulate
+    python3 -m pip install matplotlib
+    python3 -m pip install 'tenacity<8.4.0'
 } &>"${ARTIFACT_DIR}/monitoring-setup.log"
 
 echo "[$(date --utc -Ins)] Create summary JSON with timings"
@@ -51,12 +52,12 @@ echo "[$(date --utc -Ins)] Creating main status data file"
 STATUS_DATA_FILE="${ARTIFACT_DIR}/load-test.json"
 status_data.py \
     --status-data-file "${STATUS_DATA_FILE}" \
-    --set "name=Konflux loadtest" "started=$( cat started )" "ended=$( cat ended )" \
+    --set "name=Konflux loadtest" "started=$(cat started)" "ended=$(cat ended)" \
     --set-subtree-json "parameters.options=${ARTIFACT_DIR}/load-test-options.json" "results.measurements=${ARTIFACT_DIR}/load-test-timings.json"
 
 echo "[$(date --utc -Ins)] Adding monitoring data"
-mstarted="$( date -d "$( cat started )" --utc -Iseconds )"
-mended="$( date -d "$( cat ended )" --utc -Iseconds )"
+mstarted="$(date -d "$(cat started)" --utc -Iseconds)"
+mended="$(date -d "$(cat ended)" --utc -Iseconds)"
 mhost="https://$PROMETHEUS_HOST"
 mrawdir="${ARTIFACT_DIR}/monitoring-raw-data-dir/"
 mkdir -p "$mrawdir"
@@ -81,20 +82,20 @@ else
     application_stub="${ARTIFACT_DIR}/collected-applications.appstudio.redhat.com"
     component_stub="${ARTIFACT_DIR}/collected-components.appstudio.redhat.com"
 
-    for uid in $( seq 1 $CONCURRENCY ); do
+    for uid in $(seq 1 $CONCURRENCY); do
         username="test-rhtap-$uid"
-        offline_token=$( cat users.json | jq --raw-output '.[] | select(.username == "'$username'").token' )
-        api_server=$( cat users.json | jq --raw-output '.[] | select(.username == "'$username'").apiurl' )
-        sso_server=$( cat users.json | jq --raw-output '.[] | select(.username == "'$username'").ssourl' )
-        access_token=$( curl \
-                          --silent \
-                          --header "Accept: application/json" \
-                          --header "Content-Type: application/x-www-form-urlencoded" \
-                          --data-urlencode "grant_type=refresh_token" \
-                          --data-urlencode "client_id=cloud-services" \
-                          --data-urlencode "refresh_token=${offline_token}" \
-                          "${sso_server}" \
-                        | jq --raw-output ".access_token" )
+        offline_token=$(cat users.json | jq --raw-output '.[] | select(.username == "'$username'").token')
+        api_server=$(cat users.json | jq --raw-output '.[] | select(.username == "'$username'").apiurl')
+        sso_server=$(cat users.json | jq --raw-output '.[] | select(.username == "'$username'").ssourl')
+        access_token=$(curl \
+            --silent \
+            --header "Accept: application/json" \
+            --header "Content-Type: application/x-www-form-urlencoded" \
+            --data-urlencode "grant_type=refresh_token" \
+            --data-urlencode "client_id=cloud-services" \
+            --data-urlencode "refresh_token=${offline_token}" \
+            "${sso_server}" |
+            jq --raw-output ".access_token")
         login_log="${login_log_stub}-${username}.log"
         echo "Logging in as $username..."
         if ! oc login --token="$access_token" --server="$api_server" &>$login_log; then

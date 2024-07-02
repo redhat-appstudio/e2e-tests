@@ -45,4 +45,26 @@
 
 {{ monitor_pod('tekton-results', 'tekton-results-watcher', 20, '-.*') }}
 {{ monitor_pod_container('tekton-results', 'tekton-results-watcher', 'watcher', 20, '-.*') }}
+{{ monitor_pod('tekton-results', 'tekton-results-api', 20, '-.*') }}
+{{ monitor_pod_container('tekton-results', 'tekton-results-api', 'api', 20, '-.*') }}
 {{ pv_stats('tekton-results', 'data-postgres-postgresql-0', 20) }}
+
+- name: measurements.tekton-results-watcher.watcher_workqueue_depth
+  monitoring_query: sum(watcher_workqueue_depth{job="tekton-results-watcher"})
+  monitoring_step: 20
+
+- name: measurements.tekton-results-watcher.watcher_reconcile_latency_bucket
+  monitoring_query: histogram_quantile(0.99, sum(rate(watcher_reconcile_latency_bucket{job="tekton-results-watcher"}[30m])) by (le) ) / 1000
+  monitoring_step: 20
+
+- name: measurements.cluster_cpu_usage_seconds_total_rate
+  monitoring_query: sum(node_namespace_pod_container:container_cpu_usage_seconds_total:sum_irate{cluster=""})
+  monitoring_step: 20
+
+- name: measurements.cluster_memory_usage_rss_total
+  monitoring_query: sum(container_memory_rss{job="kubelet", metrics_path="/metrics/cadvisor", cluster="", container!=""})
+  monitoring_step: 20
+
+- name: measurements.cluster_disk_throughput_total
+  monitoring_query: sum (rate(container_fs_reads_bytes_total{id!="", device=~"(/dev.+)|mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+", cluster=""}[5m]) + rate(container_fs_writes_bytes_total{id!="", device=~"(/dev.+)|mmcblk.p.+|nvme.+|rbd.+|sd.+|vd.+|xvd.+|dm-.+|dasd.+", cluster=""}[5m]))
+  monitoring_step: 20
