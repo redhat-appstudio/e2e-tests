@@ -575,13 +575,19 @@ var _ = framework.BuildSuiteDescribe("Build templates E2E test", Label("build", 
 
 						// Refresh our copy of the PipelineRun for latest results
 						pr, err = kubeadminClient.TektonController.GetPipelineRun(pr.Name, pr.Namespace)
+						if err != nil {
+							GinkgoWriter.Printf("The PipelineRun %s in %s namespace %s failed, error message: %s\n", pr.Name, pr.Namespace, err)
+						} 
 						Expect(err).NotTo(HaveOccurred())
-
+						
 						// The UI uses this label to display additional information.
 						Expect(pr.Labels["build.appstudio.redhat.com/pipeline"]).To(Equal("enterprise-contract"))
 
 						// The UI uses this label to display additional information.
 						tr, err := kubeadminClient.TektonController.GetTaskRunFromPipelineRun(kubeadminClient.CommonController.KubeRest(), pr, "verify")
+						if err != nil {
+							GinkgoWriter.Printf("The TaskRun %s of PipelineRun %s failed, error message: %s\n", tr.Name, pr.Name, err)
+						}					
 						Expect(err).NotTo(HaveOccurred())
 						Expect(tr.Labels["build.appstudio.redhat.com/pipeline"]).To(Equal("enterprise-contract"))
 
