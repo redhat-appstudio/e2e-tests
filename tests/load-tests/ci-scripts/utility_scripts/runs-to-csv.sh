@@ -57,7 +57,7 @@ find "${1:-.}" -name load-test.json -print0 | sort | while IFS= read -r -d '' fi
     grep --quiet "XXXXX" "${filename}" && echo "WARNING placeholders found in ${filename}, removing"
     sed -Ee 's/: ([0-9]+\.[0-9]*[X]+[0-9e\+-]*|[0-9]*X+[0-9]*\.[0-9e\+-]*|[0-9]*X+[0-9]*\.[0-9]*X+[0-9e\+-]+)/: "\1"/g' "${filename}" \
         | jq --raw-output '[
-        .metadata.env.BUILD_ID,
+        .metadata.env.BUILD_ID // .run,
         .started,
         .ended,
 
