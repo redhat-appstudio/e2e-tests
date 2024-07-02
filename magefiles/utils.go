@@ -51,7 +51,7 @@ func gitCheckoutRemoteBranch(remoteName, branchName string) error {
 		{"remote", "add", remoteName, fmt.Sprintf("https://github.com/%s/e2e-tests.git", remoteName)},
 		{"fetch", remoteName},
 		{"checkout", branchName},
-		{"pull", "--rebase", "upstream", "main"},
+		{"pull", "--rebase", "upstream", "ocp-kfx"},
 	} {
 		if err := git(arg...); err != nil {
 			return fmt.Errorf("error when checkout out remote branch %s from remote %s: %v", branchName, remoteName, err)
