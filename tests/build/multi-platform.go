@@ -41,7 +41,8 @@ const (
 	IbmKey                 = "multi-platform-tests"
 	SshSecretName          = "sshkeys"
 	Ec2User                = "ec2-user"
-	AwsRegion              = "us-east-1"
+	AwsRegion1             = "us-east-1"
+	AwsRegion2             = "us-east-2"
 	AwsPlatform            = "linux/arm64"
 	DynamicMaxInstances    = "1"
 	IbmZUrl                = "https://us-east.iaas.cloud.ibm.com/v1"
@@ -826,7 +827,7 @@ func dirExists(session *ssh.Session, dirPath string) bool {
 func getHostPoolAwsInstances() ([]string, error) {
 	cfg, err := config.LoadDefaultConfig(context.TODO(),
 		config.WithCredentialsProvider(EnvCredentialsProvider{}),
-		config.WithRegion(AwsRegion))
+		config.WithRegion(AwsRegion1))
 	if err != nil {
 		return nil, err
 	}
@@ -886,7 +887,7 @@ func createConfigMapForDynamicInstance(f *framework.Framework, instanceTag strin
 	hostConfig.Data["dynamic-platforms"] = AwsPlatform
 	hostConfig.Data["instance-tag"] = instanceTag
 	hostConfig.Data["dynamic.linux-arm64.type"] = "aws"
-	hostConfig.Data["dynamic.linux-arm64.region"] = AwsRegion
+	hostConfig.Data["dynamic.linux-arm64.region"] = AwsRegion2
 	hostConfig.Data["dynamic.linux-arm64.ami"] = "ami-09d5d0912f52f9514"
 	hostConfig.Data["dynamic.linux-arm64.instance-type"] = "t4g.micro"
 	hostConfig.Data["dynamic.linux-arm64.key-name"] = "multi-platform-e2e"
@@ -944,7 +945,7 @@ func createSecretsForDynamicInstance(f *framework.Framework) error {
 func terminateAwsInstance(instanceId string) error {
 	cfg, err := config.LoadDefaultConfig(context.TODO(),
 		config.WithCredentialsProvider(EnvCredentialsProvider{}),
-		config.WithRegion(AwsRegion))
+		config.WithRegion(AwsRegion2))
 	if err != nil {
 		return err
 	}
