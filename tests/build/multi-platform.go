@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/konflux-ci/e2e-tests/pkg/clients/has"
+	"github.com/konflux-ci/e2e-tests/pkg/utils/build"
 	"golang.org/x/crypto/ssh"
 	v1 "k8s.io/api/core/v1"
 
@@ -30,6 +32,8 @@ import (
 
 	"github.com/IBM/go-sdk-core/v5/core"
 	"github.com/IBM/vpc-go-sdk/vpcv1"
+
+	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -59,6 +63,31 @@ var (
 	interval                     = 10 * time.Second
 )
 
+type RPMLockFile struct {
+	LockFileVersion int    `yaml:"lockfileVersion"`
+	LockFileVendor  string `yaml:"lockfileVendor"`
+	Arches          []struct {
+		Arch     string `yaml:"arch"`
+		Packages []struct {
+			Url       string `yaml:"url"`
+			Repoid    string `yaml:"repoid"`
+			Size      int    `yaml:"size"`
+			Checksum  string `yaml:"checksum"`
+			Name      string `yaml:"name"`
+			EVR       string `yaml:"evr"`
+			SourceRPM string `yaml:"sourcerpm"`
+		}
+		Source []struct {
+			Url      string `yaml:"url"`
+			Repoid   string `yaml:"repoid"`
+			Size     int    `yaml:"size"`
+			Checksum string `yaml:"checksum"`
+			Name     string `yaml:"name"`
+			EVR      string `yaml:"evr"`
+		}
+	}
+}
+
 var _ = framework.MultiPlatformBuildSuiteDescribe("Multi Platform Controller E2E tests", Pending, Label("multi-platform"), func() {
 	var f *framework.Framework
 	AfterEach(framework.ReportFailure(&f))
@@ -70,6 +99,9 @@ var _ = framework.MultiPlatformBuildSuiteDescribe("Multi Platform Controller E2E
 
 		var testNamespace, applicationName, componentName, multiPlatformSecretName, host, userDir string
 		var component *appservice.Component
+
+		// TODO: move this repo into redhat-appstudio-qe Github organization
+		const testRepoUrl = "https://github.com/cqi-stonesoup-test/multi-arch-builds"
 
 		AfterAll(func() {
 			// Cleanup aws secet and host-config
@@ -101,7 +133,7 @@ var _ = framework.MultiPlatformBuildSuiteDescribe("Multi Platform Controller E2E
 			err = createSecretForHostPool(f)
 			Expect(err).ShouldNot(HaveOccurred())
 
-			component, applicationName, componentName = createApplicationAndComponent(f, testNamespace, "ARM64")
+			component, applicationName, componentName = createApplicationAndComponent(f, testNamespace, "ARM64", testRepoUrl, "main")
 		})
 
 		When("the Component with multi-platform-build is created", func() {
@@ -173,8 +205,49 @@ var _ = framework.MultiPlatformBuildSuiteDescribe("Multi Platform Controller E2E
 					return nil
 				}, timeout, interval).Should(Succeed(), "timed out when verifying that the remote host was cleaned up correctly")
 			})
+
+			It("prefetched SRPMs are included", func() {
+				pr, err := f.AsKubeAdmin.HasController.GetComponentPipelineRun(componentName, applicationName, testNamespace, "")
+				Expect(err).Should(Succeed())
+				client := f.AsKubeAdmin.CommonController.KubeRest()
+				sourceImageUrl, err := f.AsKubeAdmin.TektonController.GetTaskRunResult(client, pr, "build-source-image", "IMAGE_URL")
+				Expect(err).Should(Succeed())
+
+				imageDir, err := build.ExtractImage(sourceImageUrl)
+				Expect(err).Should(Succeed())
+				defer os.RemoveAll(imageDir)
+
+				entries, err := os.ReadDir(filepath.Join(imageDir, "rpm_dir"))
+				Expect(err).Should(Succeed())
+
+				srpmSet := make(map[string]int)
+				for _, entry := range entries {
+					srpmSet[entry.Name()] = 1
+				}
+
+				content, err := build.ReadFileFromGitRepo(testRepoUrl, "rpm.lock.file", "main")
+				Expect(err).Should(Succeed())
+
+				rpmLockFile := RPMLockFile{}
+				Expect(yaml.Unmarshal([]byte(content), &rpmLockFile)).Should(Succeed())
+
+				// Ideally, this check should be in the CheckSourceImage function. However, it is
+				// not easy for multi-platform builds tests here to set hermetic parameter for the
+				// triggered PipelineRun, which causes the prefetched sources check for hermetic.
+				// So, before figuring out a good solution, make this check separate here.
+
+				for _, arch := range rpmLockFile.Arches {
+					for _, sourceInfo := range arch.Source {
+						srpmFilename := filepath.Base(sourceInfo.Url)
+						if _, exists := srpmSet[srpmFilename]; !exists {
+							Fail(fmt.Sprintf("SRPM %s is not included for arch %s", srpmFilename, arch.Arch))
+						}
+					}
+				}
+			})
 		})
 	})
+
 	Describe("aws dynamic allocation", Label("aws-dynamic"), func() {
 		var testNamespace, applicationName, componentName, multiPlatformSecretName, multiPlatformTaskName, dynamicInstanceTag, instanceId string
 		var component *appservice.Component
@@ -221,7 +294,7 @@ var _ = framework.MultiPlatformBuildSuiteDescribe("Multi Platform Controller E2E
 			err = createSecretsForDynamicInstance(f)
 			Expect(err).ShouldNot(HaveOccurred())
 
-			component, applicationName, componentName = createApplicationAndComponent(f, testNamespace, "ARM64")
+			component, applicationName, componentName = createApplicationAndComponent(f, testNamespace, "ARM64", "", "")
 		})
 
 		When("the Component with multi-platform-build is created", func() {
@@ -300,7 +373,7 @@ var _ = framework.MultiPlatformBuildSuiteDescribe("Multi Platform Controller E2E
 			err = createSecretsForIbmDynamicInstance(f)
 			Expect(err).ShouldNot(HaveOccurred())
 
-			component, applicationName, componentName = createApplicationAndComponent(f, testNamespace, "S390X")
+			component, applicationName, componentName = createApplicationAndComponent(f, testNamespace, "S390X", "", "")
 		})
 
 		When("the Component with multi-platform-build is created", func() {
@@ -380,7 +453,7 @@ var _ = framework.MultiPlatformBuildSuiteDescribe("Multi Platform Controller E2E
 			err = createSecretsForIbmDynamicInstance(f)
 			Expect(err).ShouldNot(HaveOccurred())
 
-			component, applicationName, componentName = createApplicationAndComponent(f, testNamespace, "PPC64LE")
+			component, applicationName, componentName = createApplicationAndComponent(f, testNamespace, "PPC64LE", "", "")
 		})
 
 		When("the Component with multi-platform-build is created", func() {
@@ -417,12 +490,24 @@ var _ = framework.MultiPlatformBuildSuiteDescribe("Multi Platform Controller E2E
 	})
 })
 
-func createApplicationAndComponent(f *framework.Framework, testNamespace, platform string) (component *appservice.Component, applicationName, componentName string) {
-	applicationName = fmt.Sprintf("multi-platform-suite-application-%s", util.GenerateRandomString(4))
+// createApplicationAndComponent creates Applicaiton and Component CR from given Git URL and revision.
+// createApplicationAndComponent returns a tuple with three values in order, the created Component CR, application name and component name.
+func createApplicationAndComponent(f *framework.Framework, testNamespace, platform, gitUrl, gitRevision string) (*appservice.Component, string, string) {
+    applicationName := fmt.Sprintf("multi-platform-suite-application-%s", util.GenerateRandomString(4))
 	_, err := f.AsKubeAdmin.HasController.CreateApplication(applicationName, testNamespace)
 	Expect(err).NotTo(HaveOccurred())
 
-	componentName = fmt.Sprintf("multi-platform-suite-component-%s", util.GenerateRandomString(4))
+    componentName := fmt.Sprintf("multi-platform-suite-component-%s", util.GenerateRandomString(4))
+
+    gitSourceUrl := gitUrl
+    if gitSourceUrl == "" {
+        gitSourceUrl = multiPlatformProjectGitUrl
+    }
+
+    gitSourceRevision := gitRevision
+    if gitSourceRevision == "" {
+        gitSourceRevision = multiPlatformProjectRevision
+    }
 
 	customBuildahRemotePipeline := os.Getenv(constants.CUSTOM_BUILDAH_REMOTE_PIPELINE_BUILD_BUNDLE_ENV + "_" + platform)
 	Expect(customBuildahRemotePipeline).ShouldNot(BeEmpty())
@@ -436,16 +521,16 @@ func createApplicationAndComponent(f *framework.Framework, testNamespace, platfo
 		Source: appservice.ComponentSource{
 			ComponentSourceUnion: appservice.ComponentSourceUnion{
 				GitSource: &appservice.GitSource{
-					URL:           multiPlatformProjectGitUrl,
-					Revision:      multiPlatformProjectRevision,
+					URL:      gitSourceUrl,
+					Revision: gitSourceRevision,
 					DockerfileURL: constants.DockerFilePath,
 				},
 			},
 		},
 	}
-	component, err = f.AsKubeAdmin.HasController.CreateComponent(componentObj, testNamespace, "", "", applicationName, true, buildPipelineAnnotation)
+    component, err := f.AsKubeAdmin.HasController.CreateComponent(componentObj, testNamespace, "", "", applicationName, true, buildPipelineAnnotation)
 	Expect(err).ShouldNot(HaveOccurred())
-	return
+	return component, applicationName, componentName
 }
 
 func validateMultiPlatformSecretIsPopulated(f *framework.Framework, testNamespace, multiPlatformTaskName, multiPlatformSecretName string) (instanceId string) {

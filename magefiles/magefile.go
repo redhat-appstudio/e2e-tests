@@ -576,12 +576,20 @@ func SetupMultiPlatformTests() error {
 			var lastBundle *tektonapi.Param
 			var lastName *tektonapi.Param
 			buildahTask := false
+			prefetchDepsTask := false
+			buildSourceImageTask := false
 			for i, param := range params {
 				if param.Name == "bundle" {
 					lastBundle = &t.TaskRef.Params[i]
 				} else if param.Name == "name" && param.Value.StringVal == "buildah" {
 					lastName = &t.TaskRef.Params[i]
 					buildahTask = true
+				} else if param.Name == "name" && param.Value.StringVal == "prefetch-dependencies" {
+					lastName = &t.TaskRef.Params[i]
+					prefetchDepsTask = true
+				} else if param.Name == "name" && param.Value.StringVal == "build-source-image" {
+					lastName = &t.TaskRef.Params[i]
+					buildSourceImageTask = true
 				}
 			}
 			if buildahTask {
@@ -593,6 +601,24 @@ func SetupMultiPlatformTests() error {
 				t.Params = append(t.Params, tektonapi.Param{Name: "PLATFORM", Value: *tektonapi.NewStructuredValues("$(params.PLATFORM)")})
 				dockerPipelineObject.Spec.Params = append(dockerPipelineObject.PipelineSpec().Params, tektonapi.ParamSpec{Name: "PLATFORM", Default: tektonapi.NewStructuredValues(platformType)})
 				dockerPipelineObject.Name = "buildah-remote-pipeline"
+			} else if prefetchDepsTask {
+				// Always run prefetch-dependencies task for prefetching RPMs
+				t.When = make([]tektonapi.WhenExpression, 0, 5)
+				// There is a test repo is used for testing including prefetched SRPMs
+				t.Params = make([]tektonapi.Param, 0, 5)
+				t.Params = append(t.Params, tektonapi.Param{Name: "input", Value: *tektonapi.NewStructuredValues(`{"type": "rpm"}`)})
+			} else if buildSourceImageTask {
+				// Enable source container build.
+				newWhenExpressions := make([]tektonapi.WhenExpression, 0, 5)
+				for _, expression := range t.When {
+					if expression.Input == "$(params.build-source-image)" {
+						continue
+					}
+					newWhenExpressions = append(newWhenExpressions, expression)
+				}
+				t.When = newWhenExpressions
+			}
+			if buildahTask && prefetchDepsTask && buildSourceImageTask {
 				break
 			}
 		}
