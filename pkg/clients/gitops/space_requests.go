@@ -24,3 +24,15 @@ func (g *GitopsController) GetSpaceRequests(namespace string) (*codereadytoolcha
 
 	return spaceRequestList, nil
 }
+
+// GetSpaceRequest returns spaceRequest if the name exists in the namespace
+func (g *GitopsController) GetSpaceRequest(namespace, name string) (*codereadytoolchainv1alpha1.SpaceRequest, error) {
+	spaceRequest := &codereadytoolchainv1alpha1.SpaceRequest{}
+
+	err := g.KubeRest().Get(context.Background(), client.ObjectKey{
+		Namespace: namespace,
+		Name:      name,
+	}, spaceRequest)
+
+	return spaceRequest, err
+}
