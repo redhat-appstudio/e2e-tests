@@ -35,7 +35,6 @@ var _ = framework.ReleasePipelinesSuiteDescribe("[HACBS-1571]test-release-e2e-pu
 	AfterEach(framework.ReportFailure(&fw))
 	var err error
 	var devNamespace, managedNamespace, compName, additionalCompName string
-	var avgControllerQueryTimeout = 5 * time.Minute
 
 	var imageIDs []string
 	var pyxisKeyDecoded, pyxisCertDecoded []byte
@@ -272,7 +271,7 @@ var _ = framework.ReleasePipelinesSuiteDescribe("[HACBS-1571]test-release-e2e-pu
 			Expect(fw.AsKubeAdmin.ReleaseController.WaitForReleasePipelineToBeFinished(releaseCR2, managedNamespace)).To(Succeed(), fmt.Sprintf("Error when waiting for a release pipelinerun for release %s/%s to finish", releaseCR2.GetNamespace(), releaseCR2.GetName()))
 		})
 
-		It("validate the result of task create-pyxis-image contains image ids", func() {
+/*		It("validate the result of task create-pyxis-image contains image ids", func() {
 			Eventually(func() []string {
 				trReleaseLogs, err := fw.AsKubeAdmin.TektonController.GetTaskRunLogs(releasePR1.GetName(), "create-pyxis-image", releasePR1.GetNamespace())
 				Expect(err).NotTo(HaveOccurred())
@@ -298,7 +297,8 @@ var _ = framework.ReleasePipelinesSuiteDescribe("[HACBS-1571]test-release-e2e-pu
 
 				return imageIDs
 			}, avgControllerQueryTimeout, releasecommon.DefaultInterval).Should(HaveLen(2))
-		})
+		})*/
+        // IDs are not stored in results anymore
 
 		It("tests that associated Release CR has completed for each Component's Snapshot", func() {
 			Eventually(func() error {
