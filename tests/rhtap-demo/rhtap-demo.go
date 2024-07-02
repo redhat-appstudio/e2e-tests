@@ -150,7 +150,30 @@ var _ = framework.RhtapDemoSuiteDescribe(func() {
 					var componentNewBaseBranch, gitRevision string
 					componentRepositoryName := utils.ExtractGitRepositoryNameFromURL(componentSpec.GitSourceUrl)
 					componentList := []*appservice.Component{}
-					var secret string
+					var secretName string
+
+					if componentSpec.Private {
+						It(fmt.Sprintf("creates a secret for private component %s", componentSpec.Name), Label(devEnvTestLabel, stageEnvTestLabel), func() {
+							privateCompSecret := &corev1.Secret{
+								ObjectMeta: metav1.ObjectMeta{
+									Name: constants.PrivateComponentSecretName,
+									Namespace: namespace,
+									Labels: map[string]string {
+										"appstudio.redhat.com/credentials": "scm",
+										"appstudio.redhat.com/scm.host": "github.com",
+									},
+								},
+								Type: corev1.SecretTypeBasicAuth,
+								StringData: map[string]string {
+									"password": os.Getenv("GITHUB_TOKEN"),
+								},
+							}
+							_, err = fw.AsKubeAdmin.CommonController.CreateSecret(namespace, privateCompSecret)
+							Expect(err).ToNot(HaveOccurred())
+
+							secretName = privateCompSecret.Name
+						})
+					}
 
 					It("creates new branch for advanced build", Label(devEnvTestLabel, stageEnvTestLabel), func() {
 						gitRevision = componentSpec.GitSourceRevision
@@ -182,7 +205,8 @@ var _ = framework.RhtapDemoSuiteDescribe(func() {
 									},
 								},
 							}
-							c, err := fw.AsKubeAdmin.HasController.CreateComponent(componentObj, namespace, "", secret, appTest.ApplicationName, false, constants.DefaultDockerBuildPipelineBundle)
+
+							c, err := fw.AsKubeAdmin.HasController.CreateComponent(componentObj, namespace, "", secretName, appTest.ApplicationName, false, constants.DefaultDockerBuildPipelineBundle)
 							Expect(err).ShouldNot(HaveOccurred())
 							componentList = append(componentList, c)
 						})
