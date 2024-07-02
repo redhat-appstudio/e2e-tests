@@ -36,6 +36,7 @@ const (
 	ComponentName                   string = "dc-metro-map"
 	GitSourceComponentUrl           string = "https://github.com/scoheb/dc-metro-map"
 	AdditionalComponentName         string = "simple-python"
+	MultiArchComponentUrl           string = "https://github.com/jinqi7/multi-platform-test-prod"
 	AdditionalGitSourceComponentUrl string = "https://github.com/devfile-samples/devfile-sample-python-basic"
 	ReleasedImagePushRepo           string = "quay.io/redhat-appstudio-qe/dcmetromap"
 	AdditionalReleasedImagePushRepo string = "quay.io/redhat-appstudio-qe/simplepython"

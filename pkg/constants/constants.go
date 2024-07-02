@@ -86,6 +86,9 @@ const (
 	RELEASE_MANAGED_WORKSPACE_ENV = "RELEASE_MANAGED_WORKSPACE"
 
 	// Bundle ref for overriding the default Java build bundle specified in BuildPipelineConfigConfigMapYamlURL
+	CUSTOM_MULTI_ARCH_PIPELINE_BUILD_BUNDLE_ENV string = "CUSTOM_MULTI_ARCH_PIPELINE_BUILD_BUNDLE"
+
+	// Bundle ref for overriding the default Java build bundle specified in BuildPipelineConfigConfigMapYamlURL
 	CUSTOM_JAVA_PIPELINE_BUILD_BUNDLE_ENV string = "CUSTOM_JAVA_PIPELINE_BUILD_BUNDLE"
 
 	// Bundle ref for a buildah-remote build
