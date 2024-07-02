@@ -21,7 +21,7 @@ const (
 
 	helloWorldComponentGitSourceRepoName = "devfile-sample-hello-world"
 	helloWorldComponentDefaultBranch     = "default"
-	helloWorldComponentRevision          = "b915157dc9efac492ebc285d4a44ce67e6ab2075"
+	helloWorldComponentRevision          = "d2d03e69de912e3827c29b4c5b71ffe8bcb5dad8"
 
 	multiComponentGitSourceRepoName = "sample-multi-component"
 	multiComponentDefaultBranch     = "main"
@@ -56,6 +56,7 @@ const (
 )
 
 var (
+	additionalTags                  = []string{"test-tag1", "test-tag2"}
 	componentUrls                   = strings.Split(utils.GetEnv(COMPONENT_REPO_URLS_ENV, pythonComponentGitSourceURL), ",") //multiple urls
 	componentNames                  []string
 	gihubOrg                        = utils.GetEnv(constants.GITHUB_E2E_ORGANIZATION_ENV, "redhat-appstudio-qe")

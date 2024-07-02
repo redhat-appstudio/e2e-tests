@@ -8,6 +8,7 @@ import (
 	"time"
 
 	tektonutils "github.com/konflux-ci/release-service/tekton/utils"
+	"github.com/openshift/library-go/pkg/image/reference"
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"github.com/google/go-github/v44/github"
@@ -360,6 +361,19 @@ var _ = framework.BuildSuiteDescribe("Build service E2E tests", Label("build", "
 				Expect(err).ShouldNot(HaveOccurred(), fmt.Sprintf("failed while checking if robot account exists in quay with error: %+v", err))
 				Expect(robotAccountExist).To(BeTrue(), fmt.Sprintf("quay robot account %s does not exists", robotAccountName))
 
+			})
+			It("floating tags are created successfully", func() {
+				builtImage := build.GetBinaryImage(plr)
+				Expect(builtImage).ToNot(BeEmpty(), "built image url is empty")
+				builtImageRef, err := reference.Parse(builtImage)
+				Expect(err).ShouldNot(HaveOccurred(),
+					fmt.Sprintf("cannot parse image pullspec: %s", builtImage))
+				for _, tagName := range additionalTags {
+					_, err := build.GetImageTag(builtImageRef.Namespace, builtImageRef.Name, tagName)
+					Expect(err).ShouldNot(HaveOccurred(),
+						fmt.Sprintf("failed to get tag %s from image repo", tagName),
+					)
+				}
 			})
 			It("created image repo is public", func() {
 				isPublic, err := build.IsImageRepoPublic(imageRepoName)

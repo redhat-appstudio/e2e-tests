@@ -46,7 +46,7 @@ const pipelineCompletionRetries = 2
 func CreateComponent(ctrl *has.HasController, gitUrl, revision, applicationName, componentName, namespace string) string {
 	var err error
 	var buildPipelineAnnotation map[string]string
-	contextDir, dockerfilePath, pipelineBundleName, enableHermetic, prefetchInput := GetComponentScenarioDetailsFromGitUrl(gitUrl)
+	contextDir, dockerfilePath, pipelineBundleName, enableHermetic, prefetchInput, checkAdditionalTags := GetComponentScenarioDetailsFromGitUrl(gitUrl)
 	Expect(pipelineBundleName).ShouldNot(BeEmpty())
 	if pipelineBundleName == "docker-build" {
 		customDockerBuildBundle := os.Getenv(constants.CUSTOM_DOCKER_BUILD_PIPELINE_BUNDLE_ENV)
@@ -55,6 +55,14 @@ func CreateComponent(ctrl *has.HasController, gitUrl, revision, applicationName,
 			customDockerBuildBundle, err = enableHermeticBuildInPipelineBundle(customDockerBuildBundle, prefetchInput)
 			if err != nil {
 				GinkgoWriter.Printf("failed to enable hermetic build in the pipeline bundle with: %v\n", err)
+				return ""
+			}
+		}
+		if checkAdditionalTags {
+			//Update the pipeline bundle to apply additional tags
+			customDockerBuildBundle, err = applyAdditionalTagsInPipelineBundle(customDockerBuildBundle, additionalTags)
+			if err != nil {
+				GinkgoWriter.Printf("failed to apply additinal tags in the pipeline bundle with: %v\n", err)
 				return ""
 			}
 		}
@@ -282,6 +290,24 @@ var _ = framework.BuildSuiteDescribe("Build templates E2E test", Label("build", 
 				buildSummaryLog := logs["step-appstudio-summary"]
 				binaryImage := build.GetBinaryImage(pr)
 				Expect(buildSummaryLog).To(ContainSubstring(binaryImage))
+			})
+
+			It("floating tags are created successfully", func() {
+				_, _, _, _, _, checkAdditionalTags := GetComponentScenarioDetailsFromGitUrl(gitUrl)
+				if !checkAdditionalTags {
+					Skip(fmt.Sprintf("floating tag validation is not needed for: %s", gitUrl))
+				}
+				builtImage := build.GetBinaryImage(pr)
+				Expect(builtImage).ToNot(BeEmpty(), "built image url is empty")
+				builtImageRef, err := reference.Parse(builtImage)
+				Expect(err).ShouldNot(HaveOccurred(),
+					fmt.Sprintf("cannot parse image pullspec: %s", builtImage))
+				for _, tagName := range additionalTags {
+					_, err := build.GetImageTag(builtImageRef.Namespace, builtImageRef.Name, tagName)
+					Expect(err).ShouldNot(HaveOccurred(),
+						fmt.Sprintf("failed to get tag %s from image repo", tagName),
+					)
+				}
 			})
 
 			It("check for source images if enabled in pipeline", Label(buildTemplatesTestLabel, sourceBuildTestLabel), func() {
@@ -667,6 +693,42 @@ func enableHermeticBuildInPipelineBundle(customDockerBuildBundle, prefetchInput 
 			dockerPipelineObject.PipelineSpec().Params[i].Default.StringVal = prefetchInput
 		}
 	}
+	if newPipelineYaml, err = yaml.Marshal(dockerPipelineObject); err != nil {
+		return "", fmt.Errorf("error when marshalling a new pipeline to YAML: %v", err)
+	}
+	keychain := authn.NewMultiKeychain(authn.DefaultKeychain)
+	authOption := remoteimg.WithAuthFromKeychain(keychain)
+	tag := fmt.Sprintf("%d-%s", time.Now().Unix(), util.GenerateRandomString(4))
+	quayOrg := utils.GetEnv(constants.QUAY_E2E_ORGANIZATION_ENV, constants.DefaultQuayOrg)
+	newDockerBuildPipelineImg := strings.ReplaceAll(constants.DefaultImagePushRepo, constants.DefaultQuayOrg, quayOrg)
+	var newDockerBuildPipeline, _ = name.ParseReference(fmt.Sprintf("%s:pipeline-bundle-%s", newDockerBuildPipelineImg, tag))
+	// Build and Push the tekton bundle
+	if err = tekton.BuildAndPushTektonBundle(newPipelineYaml, newDockerBuildPipeline, authOption); err != nil {
+		return "", fmt.Errorf("error when building/pushing a tekton pipeline bundle: %v", err)
+	}
+	return newDockerBuildPipeline.String(), nil
+}
+
+// this function takes a bundle and additonalTags string slice as inputs
+// and creates a bundle with adding ADDITIONAL_TAGS params in the apply-tags task
+// and then push the bundle to quay using format: quay.io/<QUAY_E2E_ORGANIZATION>/test-images:<generated_tag>
+func applyAdditionalTagsInPipelineBundle(customDockerBuildBundle string, additionalTags []string) (string, error) {
+	var tektonObj runtime.Object
+	var err error
+	var newPipelineYaml []byte
+	// Extract docker-build pipeline as tekton object from the bundle
+	if tektonObj, err = tekton.ExtractTektonObjectFromBundle(customDockerBuildBundle, "pipeline", "docker-build"); err != nil {
+		return "", fmt.Errorf("failed to extract the Tekton Pipeline from bundle: %+v", err)
+	}
+	dockerPipelineObject := tektonObj.(*tektonpipeline.Pipeline)
+	// Update ADDITIONAL_TAGS params arrays with additionalTags in apply-tags task
+	for i := range dockerPipelineObject.PipelineSpec().Tasks {
+		t := &dockerPipelineObject.PipelineSpec().Tasks[i]
+		if t.Name == "apply-tags" {
+			t.Params = append(t.Params, tektonpipeline.Param{Name: "ADDITIONAL_TAGS", Value: *tektonpipeline.NewStructuredValues(additionalTags[0], additionalTags[1:]...)})
+		}
+	}
+
 	if newPipelineYaml, err = yaml.Marshal(dockerPipelineObject); err != nil {
 		return "", fmt.Errorf("error when marshalling a new pipeline to YAML: %v", err)
 	}

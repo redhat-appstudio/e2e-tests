@@ -5,12 +5,13 @@ import (
 )
 
 type ComponentScenarioSpec struct {
-	GitURL             string
-	ContextDir         string
-	DockerFilePath     string
-	PipelineBundleName string
-	EnableHermetic     bool
-	PrefetchInput      string
+	GitURL              string
+	ContextDir          string
+	DockerFilePath      string
+	PipelineBundleName  string
+	EnableHermetic      bool
+	PrefetchInput       string
+	CheckAdditionalTags bool
 }
 
 var componentScenarios = []ComponentScenarioSpec{
@@ -31,12 +32,13 @@ var componentScenarios = []ComponentScenarioSpec{
 		PrefetchInput:      "gomod",
 	},
 	{
-		GitURL:             "https://github.com/cachito-testing/pip-e2e-test",
-		ContextDir:         ".",
-		DockerFilePath:     "Dockerfile",
-		PipelineBundleName: "docker-build",
-		EnableHermetic:     true,
-		PrefetchInput:      "pip",
+		GitURL:              "https://github.com/cachito-testing/pip-e2e-test",
+		ContextDir:          ".",
+		DockerFilePath:      "Dockerfile",
+		PipelineBundleName:  "docker-build",
+		EnableHermetic:      true,
+		PrefetchInput:       "pip",
+		CheckAdditionalTags: true,
 	},
 	{
 		GitURL:             "https://github.com/redhat-appstudio-qe/fbc-sample-repo",
@@ -80,11 +82,11 @@ var componentScenarios = []ComponentScenarioSpec{
 	},
 }
 
-func GetComponentScenarioDetailsFromGitUrl(gitUrl string) (string, string, string, bool, string) {
+func GetComponentScenarioDetailsFromGitUrl(gitUrl string) (string, string, string, bool, string, bool) {
 	for _, componentScenario := range componentScenarios {
 		if componentScenario.GitURL == gitUrl {
-			return componentScenario.ContextDir, componentScenario.DockerFilePath, componentScenario.PipelineBundleName, componentScenario.EnableHermetic, componentScenario.PrefetchInput
+			return componentScenario.ContextDir, componentScenario.DockerFilePath, componentScenario.PipelineBundleName, componentScenario.EnableHermetic, componentScenario.PrefetchInput, componentScenario.CheckAdditionalTags
 		}
 	}
-	return "", "", "", false, ""
+	return "", "", "", false, "", false
 }
