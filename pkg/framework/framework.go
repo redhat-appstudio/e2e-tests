@@ -18,8 +18,6 @@ import (
 	"github.com/konflux-ci/e2e-tests/pkg/clients/jvmbuildservice"
 	kubeCl "github.com/konflux-ci/e2e-tests/pkg/clients/kubernetes"
 	"github.com/konflux-ci/e2e-tests/pkg/clients/release"
-	"github.com/konflux-ci/e2e-tests/pkg/clients/remotesecret"
-	"github.com/konflux-ci/e2e-tests/pkg/clients/spi"
 	"github.com/konflux-ci/e2e-tests/pkg/clients/tekton"
 	"github.com/konflux-ci/e2e-tests/pkg/constants"
 	"github.com/konflux-ci/e2e-tests/pkg/sandbox"
@@ -31,8 +29,6 @@ type ControllerHub struct {
 	CommonController          *common.SuiteController
 	TektonController          *tekton.TektonController
 	GitOpsController          *gitops.GitopsController
-	SPIController             *spi.SPIController
-	RemoteSecretController    *remotesecret.RemoteSecretController
 	ReleaseController         *release.ReleaseController
 	IntegrationController     *integration.IntegrationController
 	JvmbuildserviceController *jvmbuildservice.JvmbuildserviceController
@@ -184,18 +180,6 @@ func InitControllerHub(cc *kubeCl.CustomClient) (*ControllerHub, error) {
 		return nil, err
 	}
 
-	// Initialize SPI controller
-	spiController, err := spi.NewSuiteController(cc)
-	if err != nil {
-		return nil, err
-	}
-
-	// Initialize Remote Secret controller
-	remoteSecretController, err := remotesecret.NewSuiteController(cc)
-	if err != nil {
-		return nil, err
-	}
-
 	// Initialize Tekton controller
 	tektonController := tekton.NewSuiteController(cc)
 
@@ -232,8 +216,6 @@ func InitControllerHub(cc *kubeCl.CustomClient) (*ControllerHub, error) {
 	return &ControllerHub{
 		HasController:             hasController,
 		CommonController:          commonCtrl,
-		SPIController:             spiController,
-		RemoteSecretController:    remoteSecretController,
 		TektonController:          tektonController,
 		GitOpsController:          gitopsController,
 		ReleaseController:         releaseController,

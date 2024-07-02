@@ -459,18 +459,6 @@ func setRequiredEnvVars() error {
 				envVarPrefix = "IMAGE_CONTROLLER"
 				imageTagSuffix = "image-controller-image"
 				testSuiteLabel = "image-controller"
-			case strings.Contains(jobName, "remote-secret-service"):
-				envVarPrefix = "REMOTE_SECRET"
-				imageTagSuffix = "remote-secret-image"
-				testSuiteLabel = "remote-secret"
-			case strings.Contains(jobName, "spi-service"):
-				envVarPrefix = "SPI_OPERATOR"
-				imageTagSuffix = "spi-image"
-				testSuiteLabel = "spi-suite"
-				// spi also requires service-provider-integration-oauth image
-				im := strings.Split(os.Getenv("CI_SPI_OAUTH_IMAGE"), "@")
-				os.Setenv("SPI_OAUTH_IMAGE_REPO", im[0])
-				os.Setenv("SPI_OAUTH_IMAGE_TAG", fmt.Sprintf("redhat-appstudio-%s", "spi-oauth-image"))
 			case strings.Contains(jobName, "multi-platform-controller"):
 				envVarPrefix = "MULTI_PLATFORM_CONTROLLER"
 				imageTagSuffix = "multi-platform-controller"
@@ -503,7 +491,7 @@ func setRequiredEnvVars() error {
 			https://issues.redhat.com/browse/RHTAPBUGS-992, https://issues.redhat.com/browse/RHTAPBUGS-991, https://issues.redhat.com/browse/RHTAPBUGS-989,
 			https://issues.redhat.com/browse/RHTAPBUGS-978,https://issues.redhat.com/browse/RHTAPBUGS-956
 			*/
-			os.Setenv("E2E_TEST_SUITE_LABEL", "e2e-demo,rhtap-demo,spi-suite,remote-secret,integration-service,ec,build-templates,multi-platform")
+			os.Setenv("E2E_TEST_SUITE_LABEL", "e2e-demo,rhtap-demo,integration-service,ec,build-templates,multi-platform")
 		} else if strings.Contains(jobName, "release-service-catalog") { // release-service-catalog jobs (pull, rehearsal)
 			envVarPrefix := "RELEASE_SERVICE"
 			os.Setenv("E2E_TEST_SUITE_LABEL", "release-pipelines")

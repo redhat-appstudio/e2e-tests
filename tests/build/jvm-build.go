@@ -73,19 +73,6 @@ var _ = framework.JVMBuildSuiteDescribe("JVM Build Service E2E tests", Label("jv
 		_, err = f.AsKubeAdmin.JvmbuildserviceController.CreateJBSConfig(constants.JBSConfigName, testNamespace)
 		Expect(err).ShouldNot(HaveOccurred())
 
-		//TODO: not using SPI at the moment for auto created repos
-		//var SPITokenBinding *spi.SPIAccessTokenBinding
-		////this should result in the creation of an SPIAccessTokenBinding
-		//Eventually(func() bool {
-		//	SPITokenBinding, err = f.AsKubeDeveloper.SPIController.GetSPIAccessTokenBinding(constants.JVMBuildImageSecretName, testNamespace)
-		//
-		//	if err != nil {
-		//		return false
-		//	}
-		//
-		//	return SPITokenBinding.Status.Phase == spi.SPIAccessTokenBindingPhaseInjected
-		//}, 1*time.Minute, 5*time.Second).Should(BeTrue(), "Access token binding should be created")
-
 		//wait for the cache
 
 		Expect(f.AsKubeAdmin.JvmbuildserviceController.WaitForCache(f.AsKubeAdmin.CommonController, testNamespace)).Should(Succeed())

@@ -46,9 +46,6 @@ const (
 
 	githubUrlFormat = "https://github.com/%s/%s"
 
-	appstudioCrdsBuild = "appstudio-crds-build"
-	computeBuild       = "compute-build"
-
 	//Logging related
 	buildStatusAnnotationValueLoggingFormat = "build status annotation value: %s\n"
 

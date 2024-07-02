@@ -15,11 +15,9 @@ import (
 
 	configv1 "github.com/openshift/api/config/v1"
 	configv1client "github.com/openshift/client-go/config/clientset/versioned"
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	kubeclient "k8s.io/client-go/kubernetes"
-	podUtils "k8s.io/kubectl/pkg/util/podutils"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
 	k8swait "k8s.io/apimachinery/pkg/util/wait"
@@ -27,9 +25,6 @@ import (
 
 const majorMinorVersionFormat = "4.%d"
 const channelFormat = "%s-" + majorMinorVersionFormat
-
-const spiVaultNamespaceName = "spi-vault"
-const spiVaultPodName = "vault-0"
 
 type statusHelper struct {
 	configClientset *configv1client.Clientset
@@ -239,10 +234,6 @@ func PerformUpgrade() error {
 		return fmt.Errorf("timed out waiting for the upgrade to finish: %s", utils.ToPrettyJSONString(us.clusterVersion.Status))
 	}
 
-	if err := us.runPostUpgradeActions(); err != nil {
-		return err
-	}
-
 	return nil
 }
 
@@ -252,35 +243,5 @@ func findClusterOperatorStatusCondition(conditions []configv1.ClusterOperatorSta
 			return &conditions[i]
 		}
 	}
-	return nil
-}
-
-func (us *statusHelper) runPostUpgradeActions() error {
-	// Restart vault pod in spi-vault namespace
-	// Required to perform on a dev cluster due to https://issues.redhat.com/browse/KFLUXBUGS-1112
-	klog.Infof("restarting pod '%s/%s' to unseal it", spiVaultNamespaceName, spiVaultPodName)
-	if err := us.kubeClientSet.CoreV1().Pods(spiVaultNamespaceName).Delete(context.Background(), spiVaultPodName, metav1.DeleteOptions{}); err != nil {
-		return fmt.Errorf("failed to restart pod '%s/%s' namespace: %+v", spiVaultNamespaceName, spiVaultNamespaceName, err)
-	}
-
-	time.Sleep(time.Second * 10)
-
-	err := k8swait.PollUntilContextTimeout(context.Background(), 5*time.Second, 5*time.Minute, true, func(ctx context.Context) (done bool, err error) {
-		pod, err := us.kubeClientSet.CoreV1().Pods(spiVaultNamespaceName).Get(context.Background(), spiVaultPodName, metav1.GetOptions{})
-		if err != nil {
-			klog.Errorf("failed to get pod '%s/%s' namespace: %+v", spiVaultNamespaceName, spiVaultPodName, err)
-			return false, nil
-		}
-		if pod.Status.Phase == corev1.PodRunning && podUtils.IsPodReady(pod) {
-			klog.Infof("pod '%s/%s' successfully restarted and ready", spiVaultNamespaceName, spiVaultPodName)
-			return true, nil
-		}
-		klog.Infof("pod '%s/%s' is not yet ready", spiVaultNamespaceName, spiVaultPodName)
-		return false, nil
-	})
-	if err != nil {
-		return fmt.Errorf("timed out waiting for '%s/%s' to be ready", spiVaultNamespaceName, spiVaultPodName)
-	}
-
 	return nil
 }

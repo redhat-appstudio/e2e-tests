@@ -23,8 +23,6 @@ import (
 	jvmbuildserviceclientset "github.com/redhat-appstudio/jvm-build-service/pkg/client/clientset/versioned"
 
 	release "github.com/konflux-ci/release-service/api/v1alpha1"
-	rs "github.com/redhat-appstudio/remote-secret/api/v1beta1"
-	spi "github.com/redhat-appstudio/service-provider-integration-operator/api/v1beta1"
 	tekton "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	pipelineclientset "github.com/tektoncd/pipeline/pkg/client/clientset/versioned"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -72,14 +70,12 @@ func init() {
 	utilruntime.Must(ocpOauth.AddToScheme(scheme))
 	utilruntime.Must(tekton.AddToScheme(scheme))
 	utilruntime.Must(routev1.AddToScheme(scheme))
-	utilruntime.Must(spi.AddToScheme(scheme))
 	utilruntime.Must(toolchainv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(release.AddToScheme(scheme))
 	utilruntime.Must(integrationservicev1beta1.AddToScheme(scheme))
 	utilruntime.Must(jvmbuildservice.AddToScheme(scheme))
 	utilruntime.Must(ecp.AddToScheme(scheme))
 	utilruntime.Must(userv1.AddToScheme(scheme))
-	utilruntime.Must(rs.AddToScheme(scheme))
 	utilruntime.Must(imagecontroller.AddToScheme(scheme))
 	utilruntime.Must(pacv1alpha1.AddToScheme(scheme))
 }

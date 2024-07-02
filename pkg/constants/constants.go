@@ -139,6 +139,7 @@ const (
 	DefaultQuayOrg = "redhat-appstudio-qe"
 
 	RegistryAuthSecretName = "redhat-appstudio-registry-pull-secret"
+	PrivateComponentSecretName = "private-comp-secret"
 
 	QuayRepositorySecretName      = "quay-repository"
 	QuayRepositorySecretNamespace = "e2e-secrets"

@@ -23,7 +23,7 @@ func NewTemplateData(specOutline TestOutline, destination string) *TemplateData 
 
 	// Lets find the index of the first regex match. If it doesn't start
 	// at index 0 then assume it starts with a capitalized acronym
-	// i.e. SPI/JVM, etc. and append it to the regex list at index 0
+	// i.e. JVM, etc. and append it to the regex list at index 0
 	nidx := strings.Index(name, parts[0])
 	if nidx != 0 {
 		n := strings.ToLower(name[:nidx])

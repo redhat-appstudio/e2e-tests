@@ -66,11 +66,10 @@ Good code that waits for something to happen meets the following criteria:
 * Use `ginkgo.By` to record individual steps. Ginkgo will use that information when describing where a test timed out.
 * Use `gomega.Eventually` to wait for some condition. When it times out or gets stuck, the last failed assertion will be included in the report automatically. A good way to invoke it is:
 ```go
-
-	Eventually(func() error {
-		_, err := s.GetSPIAccessToken(linkedAccessTokenName, namespace)
-		return err
-	}, 1*time.Minute, 100*time.Millisecond).Should(Succeed(), "SPI controller didn't create the SPIAccessToken")
+    Eventually(func() error {
+  	   _, err = s.GetRelease("", snapshot.Name, namespace)
+  	   return err
+    }, 1*time.Minute, 100*time.Millisecond).Should(Succeed(), "timed out when waiting for Release to get created")
 ```
 * Use `gomega.Consistently` to ensure that some condition is true for a while. As with `gomega.Eventually`, make assertions about the value instead of checking the value with Go code and then asserting that the code returns true.
 * Both `gomega.Consistently` and `gomega.Eventually` can be aborted early via `gomega.StopPolling`.

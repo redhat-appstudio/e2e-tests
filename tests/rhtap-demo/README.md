@@ -23,7 +23,6 @@ ginkgo --label-filter='verify-stage' ./cmd/
 #### Simple build
 1. Setup
    1. Create a user namespace
-   2. Inject manual SPI token
 
 2. Test Scenario
    1. The application was created successfully and is healthy

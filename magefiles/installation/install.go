@@ -10,8 +10,6 @@ import (
 
 	"strings"
 
-	appsv1 "k8s.io/api/apps/v1"
-
 	"github.com/devfile/library/v2/pkg/util"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
@@ -135,8 +133,6 @@ func (i *InstallAppStudio) InstallAppStudioPreviewMode() error {
 	if err := utils.ExecuteCommandInASpecificDirectory("hack/bootstrap-cluster.sh", previewInstallArgs, i.InfraDeploymentsCloneDir); err != nil {
 		return err
 	}
-
-	i.addSPIOauthRedirectProxyUrl()
 
 	return i.createE2EQuaySecret()
 }
@@ -349,53 +345,4 @@ func (i *InstallAppStudio) createE2EQuaySecret() error {
 	}
 
 	return nil
-}
-
-// Update spi-oauth-service-environment-config to add OAUTH_REDIRECT_PROXY_URL property for oauth tests
-func (i *InstallAppStudio) addSPIOauthRedirectProxyUrl() {
-	OauthRedirectProxyUrl := os.Getenv("OAUTH_REDIRECT_PROXY_URL")
-	if OauthRedirectProxyUrl == "" {
-		klog.Error("OAUTH_REDIRECT_PROXY_URL not set: not updating spi configuration")
-		return
-	}
-
-	namespace := "spi-system"
-	configMapName := "spi-oauth-service-environment-config"
-	deploymentName := "spi-oauth-service"
-
-	patchData := []byte(fmt.Sprintf(`{"data": {"OAUTH_REDIRECT_PROXY_URL": "%s"}}`, OauthRedirectProxyUrl))
-	_, err := i.KubernetesClient.KubeInterface().CoreV1().ConfigMaps(namespace).Patch(context.Background(), configMapName, types.MergePatchType, patchData, metav1.PatchOptions{})
-	if err != nil {
-		klog.Error(err)
-		return
-	}
-
-	namespacedName := types.NamespacedName{
-		Name:      deploymentName,
-		Namespace: namespace,
-	}
-
-	deployment := &appsv1.Deployment{}
-	err = i.KubernetesClient.KubeRest().Get(context.Background(), namespacedName, deployment)
-	if err != nil {
-		klog.Error(err)
-		return
-	}
-
-	newDeployment := deployment.DeepCopy()
-	ann := newDeployment.ObjectMeta.Annotations
-	if ann == nil {
-		ann = make(map[string]string)
-	}
-	ann["kubectl.kubernetes.io/restartedAt"] = time.Now().Format(time.RFC3339)
-	var replicas int32 = 0
-	newDeployment.Spec.Replicas = &replicas
-	newDeployment.SetAnnotations(ann)
-
-	_, err = i.KubernetesClient.KubeInterface().AppsV1().Deployments(namespace).Update(context.Background(), newDeployment, metav1.UpdateOptions{})
-	if err != nil {
-		klog.Error(err)
-		return
-	}
-
 }

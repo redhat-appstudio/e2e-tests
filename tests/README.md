@@ -9,7 +9,5 @@ Tests folder contains E2E related to several components divided in folders:
 | `integration-service` | [integration-service](https://github.com/konflux-ci/integration-service) | [README.md](/tests/integration-service/README.md) |  |
 | `load-tests` | N/A | [LoadTests.md](/docs/LoadTests.md) |  |
 | `release` | [release-service](https://github.com/konflux-ci/release-service) | [README.md](/tests/release/README.md) |  |
-| `remote-secret` | [remote-secret](https://github.com/redhat-appstudio/remote-secret) | [README.md](/tests/remote-secret/README.md) | |
 | `rhtap-demo` | N/A | [README.md](/tests/rhtap-demo/README.md) | |
-| `spi` | [service-provider-integration-operator](https://github.com/redhat-appstudio/service-provider-integration-operator) | [README.md](/tests/spi/README.md) | |
 | `upgrade` | N/A | [README.md](/tests/upgrade/README.md) | |

@@ -29,14 +29,6 @@ func RhtapDemoSuiteDescribe(args ...interface{}) bool {
 	return Describe("[rhtap-demo-suite]", args)
 }
 
-func SPISuiteDescribe(args ...interface{}) bool {
-	return Describe("[spi-suite]", args, Ordered)
-}
-
-func RemoteSecretSuiteDescribe(args ...interface{}) bool {
-	return Describe("[remotesecret-suite]", args, Ordered)
-}
-
 func EnterpriseContractSuiteDescribe(text string, args ...interface{}) bool {
 	return Describe("[enterprise-contract-suite "+text+"]", args, Ordered)
 }
